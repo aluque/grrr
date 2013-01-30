@@ -1,3 +1,7 @@
+# This is a thin python wrapper around libgrrr, which contains the
+# hard MC computations.  Everything is built around the ctypes 
+# module in the python stdlib.
+
 from numpy import *
 from ctypes import *
 import scipy.constants as co
