@@ -18,6 +18,10 @@ static double cross(const double *a, const double *b, double *r);
 static int argmax(const double *p, int sign, int n);
 static void electromagnetic_field(double t, const double *r, double *e, 
 				  double *b);
+static void electromagnetic_wave_field(double t, const double *r, double *e, 
+				       double *b);
+static void electromagnetic_dipole_field(double t, const double *r, double *e, 
+					 double *b);
 static double moller_differential(double gamma, double gamma2, double beta2,
 				  double Kp);
 
@@ -114,6 +118,64 @@ electromagnetic_field(double t, const double *r, double *e, double *b)
 }
 
 
+static void
+electromagnetic_wave_field(double t, const double *r, double *e, double *b)
+/* Calculates the electromagnetic field at a given time and location.
+   Returns it into the e and b pointers. */
+{
+  double cosphi;
+
+  cosphi = cos(2 * PI * (r[Z] - C * t) / L);
+
+  e[X] = E0 * cosphi;
+  e[Y] = 0.0;
+  e[Z] = -E0;
+
+  b[X] = B0;
+  b[Y] = E0 * cosphi / C;
+  b[Z] = 0.0;
+
+}
+
+
+static void
+electromagnetic_dipole_field(double t, const double *r, double *e, double *b)
+/* The EM field created by a dipole at r=0,0,0 */
+{
+  // Here a is the abs of r, but the r var is already taken.
+  double a, a2, a3;
+  double l, l2, l3;
+  double sinphi, cosphi;
+
+  a2 = NORM2(r);
+  a = sqrt(a2);
+  a3 = a * a2;
+
+  l = L / a;
+  l2 = l * l;
+  l3 = l * l2;
+
+  /* The prototype of sincos does not appear in math.h.
+  sincos((a - C * t) / L, &sinphi, &cosphi);
+  */
+  sinphi = sin((a - C * t) / L);
+  cosphi = cos((a - C * t) / L);
+
+  e[X] = (E0 / a2) * ((-r[X] * r[Z] * l + 3 * r[X] * r[Z] * l3) * cosphi
+		      + ( 3 * r[X] * r[Z] * l2) * sinphi);
+  e[Y] = (E0 / a2) * ((-r[Y] * r[Z] * l + 3 * r[Y] * r[Z] * l3) * cosphi
+		      + ( 3 * r[Y] * r[Z] * l2) * sinphi);
+  e[Z] = (E0 / a2) * (((r[X] * r[X] + r[Y] * r[Y]) * l 
+		        + 3 * (r[Z] * r[Z] + a2)  * l3) * cosphi
+		      + ( 3 * (r[Z] * r[Z] + a2) * l2) * sinphi);
+
+  b[X] = (E0 / a / C) * l * r[Y] * (cosphi - l * sinphi);
+  b[Y] = -(E0 / a / C) * l * r[X] * (cosphi - l * sinphi);
+  b[Z] = 0.0;
+
+}
+
+
 static double
 truncated_bethe_fd(double gamma, double gamma2, double beta2)
 {
@@ -202,7 +264,7 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
   
   fd = truncated_bethe_fd(gamma, gamma2, beta2);
 
-  electromagnetic_field(t, r, e, b);
+  electromagnetic_wave_field(t, r, e, b);
   
   for(i = 0; i < 3; i++){
     /* The derivative of r is calculated from the relativistic velocity. */

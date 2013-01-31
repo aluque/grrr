@@ -10,10 +10,10 @@ MC2 = co.electron_mass * co.c**2
 M2C4 = MC2**2
 
 
-def init_list(zmax, emax, n):
+def init_list(zmin, zmax, emax, n):
     U0 = MC2 + emax
 
-    z = random.uniform(-zmax, 0, size=n)
+    z = random.uniform(zmin, zmax, size=n)
     q = random.uniform(0, 1, size=n)
 
     r = [array([0.0, 0.0, z0]) for z0 in z]
@@ -53,20 +53,26 @@ def output(t, final_t):
     pylab.ylabel("$p_z$ [eV/c]")
     pylab.loglog()
 
+    pylab.figure('trajectories')
+    rt = sqrt(r[:, 0]**2 + r[:, 1]**2)
+    pylab.plot(rt, r[:, 2], 'o', mew=0, ms=2, c=cm.jet(t / final_t))
+    pylab.xlabel("$r_\perp$ [m]")
+    pylab.ylabel("$r_z$ [m]")
+
 
 def main():
-    grrr.set_parameter('E0', 10 * co.kilo / co.centi)
     grrr.set_parameter('EBIAS', 0.5)
-    grrr.set_parameter('L' , 30.0)
+    grrr.set_parameter('L' , 15.0)
     grrr.set_parameter('B0', 20 * co.micro)
+    grrr.set_parameter('E0', 2.5 * co.kilo / co.centi)
 
     dt = 0.5 * co.nano
-    final_t = 1.0 * co.micro
-    output_dt = 10 * co.nano
+    final_t = 2000 * co.nano
+    output_dt = 20 * co.nano
     output_n = int(output_dt / dt)
     particles_max = 5000
 
-    init_list(50, 1 * co.mega * co.eV, 5000)
+    init_list(-20, 0, 1 * co.mega * co.eV, 5000)
     
     t = 0
     weight = 1.0
