@@ -37,7 +37,8 @@ int particle_count = 0;
 const char *invok_name = "grrr";
 
 /* These are parameters.  Later they have to be set at run-time. */
-double E0 = 7.0e5; 
+double E0 = 7.0e5;
+double EB = 0.0;
 double EBIAS = 0.0;
 double B0 = 20e-6;
 double KTH = 0.0549351 * MEV;
@@ -129,7 +130,7 @@ electromagnetic_wave_field(double t, const double *r, double *e, double *b)
 
   e[X] = E0 * cosphi;
   e[Y] = 0.0;
-  e[Z] = -E0;
+  e[Z] = -EB;
 
   b[X] = B0;
   b[Y] = E0 * cosphi / C;
@@ -169,7 +170,7 @@ electromagnetic_dipole_field(double t, const double *r, double *e, double *b)
 		        + 3 * (r[Z] * r[Z] + a2)  * l3) * cosphi
 		      + ( 3 * (r[Z] * r[Z] + a2) * l2) * sinphi);
 
-  b[X] = (E0 / a / C) * l * r[Y] * (cosphi - l * sinphi);
+  b[X] =  (E0 / a / C) * l * r[Y] * (cosphi - l * sinphi);
   b[Y] = -(E0 / a / C) * l * r[X] * (cosphi - l * sinphi);
   b[Z] = 0.0;
 

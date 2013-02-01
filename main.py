@@ -62,17 +62,18 @@ def output(t, final_t):
 
 def main():
     grrr.set_parameter('EBIAS', 0.5)
-    grrr.set_parameter('L' , 15.0)
+    grrr.set_parameter('L' , 10.0)
     grrr.set_parameter('B0', 20 * co.micro)
-    grrr.set_parameter('E0', 2.5 * co.kilo / co.centi)
+    grrr.set_parameter('E0', 30 * co.kilo / co.centi)
+    grrr.set_parameter('EB', 3 * co.kilo / co.centi)
 
     dt = 0.5 * co.nano
-    final_t = 2000 * co.nano
+    final_t = 1000 * co.nano
     output_dt = 20 * co.nano
     output_n = int(output_dt / dt)
     particles_max = 5000
 
-    init_list(-20, 0, 1 * co.mega * co.eV, 5000)
+    init_list(-5, 5, 1 * co.mega * co.eV, 5000)
     
     t = 0
     weight = 1.0
@@ -81,7 +82,9 @@ def main():
     while (t <= final_t):
         t = grrr.list_step_n(t, dt, output_n)
         if grrr.particle_count.value > particles_max:
+            oldn = grrr.particle_count.value
             grrr.list_purge(purge_factor)
+            print("   Purging {} -> {}".format(old, grrr.particle_count.value))
             weight /= purge_factor
 
         print("[{0:.2f} ns]: {1:d} particles ({2:g} weighted)"\
