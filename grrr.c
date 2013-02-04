@@ -15,12 +15,15 @@
 
 static double truncated_bethe_fd(double gamma, double gamma2, double beta2);
 static double cross(const double *a, const double *b, double *r);
+static void rotate(double theta, const double *v, double *r);
 static int argmax(const double *p, int sign, int n);
-static void electromagnetic_field(double t, const double *r, double *e, 
+void electromagnetic_field(double t, const double *r, double *e, 
 				  double *b);
-static void electromagnetic_wave_field(double t, const double *r, double *e, 
+void electromagnetic_wave_field(double t, const double *r, double *e, 
 				       double *b);
-static void electromagnetic_dipole_field(double t, const double *r, double *e, 
+void electromagnetic_interf_field(double t, const double *r, double *e, 
+					 double *b);
+void electromagnetic_dipole_field(double t, const double *r, double *e, 
 					 double *b);
 static double moller_differential(double gamma, double gamma2, double beta2,
 				  double Kp);
@@ -107,7 +110,7 @@ particle_append(particle_t *part)
 
 
 
-static void
+void
 electromagnetic_field(double t, const double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
@@ -120,28 +123,54 @@ electromagnetic_field(double t, const double *r, double *e, double *b)
 }
 
 
-static void
+void
 electromagnetic_wave_field(double t, const double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
 {
   double cosphi;
 
-  cosphi = cos(2 * PI * (r[Z] - 0.0 * C * t) / L);
+  cosphi = cos(2 * PI * (r[Z] - C * t) / L);
 
-  e[X] = E0 * cosphi;
-  e[Y] = 0.0;
-  e[Z] = -EB * exp(-(r[X] * r[X] + r[Y] * r[Y]) / (EBWIDTH*EBWIDTH));
-  //e[Z] = -EB * cos(sqrt(r[X] * r[X] + r[Y] * r[Y]) / EBWIDTH);
+  e[X] = 0.0;
+  e[Y] = E0 * cosphi;
+  //e[Z] = -EB * exp(-(r[X] * r[X] + r[Y] * r[Y]) / (EBWIDTH*EBWIDTH));
+  e[Z] = 0.0;
 
-  b[X] = B0;
-  b[Y] = -E0 * cosphi / C;
+  b[X] = -E0 * cosphi / C;
+  b[Y] = B0;
   b[Z] = 0.0;
 
 }
 
 
-static void
+void
+electromagnetic_interf_field(double t, const double *r, double *e, double *b)
+/* Calculates the electromagnetic field at a given time and location.
+   Returns it into the e and b pointers. */
+{
+  double rprime[3], et[3], bt[3], e1[3], e2[3], b1[3], b2[3];
+  int i;
+
+  rotate(PI / 4, r, rprime);
+
+  electromagnetic_wave_field(t, rprime, et, bt);
+  rotate(-PI / 4, et, e1);
+  rotate(-PI / 4, bt, b1);
+
+  rotate(-PI / 4, r, rprime);
+  electromagnetic_wave_field(t, rprime, et, bt);
+  rotate(PI / 4, et, e2);
+  rotate(PI / 4, bt, b2);
+
+  for (i = 0; i < 3; i++) {
+    e[i] = e1[i] - e2[i];
+    b[i] = b1[i] - b2[i];
+  }
+  
+}
+
+void
 electromagnetic_celestin_field(double t, const double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
@@ -159,7 +188,7 @@ electromagnetic_celestin_field(double t, const double *r, double *e, double *b)
   
 }
 
-static void
+void
 electromagnetic_dipole_field(double t, const double *r, double *e, double *b)
 /* The EM field created by a dipole at r=0,0,0 */
 {
@@ -244,9 +273,19 @@ cross(const double *a, const double *b, double *r)
   /* {-az by + ay bz, az bx - ax bz, -ay bx + ax by} */
   r[X] = -a[Z] * b[Y] + a[Y] * b[Z];
   r[Y] =  a[Z] * b[X] - a[X] * b[Z];
-  r[Z] = -a[Y] * b[X] - a[X] * b[Y];
+  r[Z] = -a[Y] * b[X] + a[X] * b[Y];
 }
 
+
+static void
+rotate(double theta, const double *v, double *r)
+/* Rotates an the vector v an angle theta in the (y, z) plane. */
+{
+  r[X] = v[X];
+
+  r[Y] = v[Y] * cos(theta) - v[Z] * sin(theta);
+  r[Z] = v[Y] * sin(theta) + v[Z] * cos(theta);
+}
 
 int
 drpdt(particle_t *part, double t, const double *r, const double *p, 
@@ -285,7 +324,7 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
   
   fd = truncated_bethe_fd(gamma, gamma2, beta2);
 
-  electromagnetic_celestin_field(t, r, e, b);
+  electromagnetic_interf_field(t, r, e, b);
   
   for(i = 0; i < 3; i++){
     /* The derivative of r is calculated from the relativistic velocity. */
@@ -300,7 +339,7 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
     /* The stopping. */
     lorentz = part->charge * ELEMENTARY_CHARGE * (e[i] + mf[i]);
 
-    dp[i] = -fd * p[i] / sqrt(p2) + lorentz;
+    dp[i] = -0.0 * fd * p[i] / sqrt(p2) + lorentz;
 
     dp[i] *= h;
     dr[i] *= h;      

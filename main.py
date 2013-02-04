@@ -12,19 +12,19 @@ M2C4 = MC2**2
 
 def main():
     grrr.set_parameter('EBIAS', 0.0)
-    grrr.set_parameter('L' , 1000.0)
-    grrr.set_parameter('B0', 0.0 * 20 * co.micro)
-    grrr.set_parameter('E0', -26 * co.mega)
-    grrr.set_parameter('EB',  0 * co.kilo / co.centi)
-    grrr.set_parameter('EBWIDTH', 1)
+    grrr.set_parameter('L' , 100.0)
+    grrr.set_parameter('B0', 20 * co.micro)
+    grrr.set_parameter('E0', 15 * co.kilo/ co.centi)
+    grrr.set_parameter('EB',  0.0 * co.kilo / co.centi)
+    grrr.set_parameter('EBWIDTH', 1e5)
 
     dt = 0.5 * co.nano
     final_t = 2000 * co.nano
     output_dt = 10 * co.nano
     output_n = int(output_dt / dt)
-    particles_max = 50000
+    particles_max = 5000
 
-    init_list(0.14, 0.16, 100 * co.kilo * co.eV, 10000)
+    init_list(0, 50, 10000 * co.kilo * co.eV, 1000)
     
     t = 0
     weight = 1.0
@@ -71,11 +71,11 @@ def output(t, final_t):
     color = cm.jet(t / final_t)
 
     pylab.figure('phases')
-    pylab.plot(co.c * abs(p[:, 2]) / co.eV, r[:, 2] - co.c * t, 'o',
+    pylab.plot(co.c * p[:, 2] / co.eV, r[:, 2] - co.c * t, 'o',
                c=color, mew=0, ms=2.0)
     pylab.xlabel("$p_z$ [eV/c]")
     pylab.ylabel("$z - ct$ [m]")
-    pylab.semilogx()
+    #pylab.semilogx()
 
     pylab.figure('histogram')
     bins = logspace(5.5, 9, 100)
@@ -103,11 +103,11 @@ def output(t, final_t):
 
     pylab.figure('transversal r')
     rt = sqrt(r[:, 0]**2 + r[:, 1]**2)
-    pylab.plot(rt, abs(co.c * p[:, 2] / co.eV), 
+    pylab.plot(rt, co.c * p[:, 2] / co.eV, 
                'o', mew=0, ms=2, c=color)
     pylab.xlabel("$r_\perp$ [m]")
     pylab.ylabel("$p_z$ [eV/c]")
-    pylab.semilogy()
+    #pylab.semilogy()
 
 if __name__ == '__main__':
     main()

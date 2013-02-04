@@ -16,6 +16,9 @@ grrr = cdll.LoadLibrary("libgrrr.so")
 # The partcle types
 ELECTRON, PROTON, PHOTON = 0, 1, 2
 
+# Vectors are stored as 3-arrays
+c_vector3 = c_double * 3
+
 # This is the particle data type.  It is binary-compatible with its C 
 # counterpart.  That means that changes in grrr.h must be translated here
 class PARTICLE(Structure):
@@ -39,6 +42,10 @@ grrr.list_step_n.argtypes = [c_double, c_double, c_int]
 grrr.list_step_n.restype = c_double
 grrr.list_purge.argtypes = [c_double]
 grrr.list_dump.argtypes = [c_char_p]
+grrr.electromagnetic_interf_field.argtypes = [c_double, c_vector3, 
+                                              c_vector3, c_vector3]
+grrr.electromagnetic_wave_field.argtypes = [c_double, c_vector3, 
+                                            c_vector3, c_vector3]
 
 # These functions are useful outside this module.  The rest is buried in
 # the grrr object here.
