@@ -39,6 +39,7 @@ const char *invok_name = "grrr";
 /* These are parameters.  Later they have to be set at run-time. */
 double E0 = 7.0e5;
 double EB = 0.0;
+double EBWIDTH = 0.0;
 double EBIAS = 0.0;
 double B0 = 20e-6;
 double KTH = 0.0549351 * MEV;
@@ -115,7 +116,7 @@ electromagnetic_field(double t, const double *r, double *e, double *b)
   b[Y] = B0;
 
   e[X] = e[Y] = 0.0;
-  e[Z] = -E0 * (EBIAS + (1.0 - EBIAS) * cos(2 * PI * (r[Z] - C * t) / L)); 
+  e[Z] = -E0 * (EBIAS + (1.0 - EBIAS) * cos(2 * PI * (r[Z] - 0.0 * C * t) / L)); 
 }
 
 
@@ -126,18 +127,37 @@ electromagnetic_wave_field(double t, const double *r, double *e, double *b)
 {
   double cosphi;
 
-  cosphi = cos(2 * PI * (r[Z] - C * t) / L);
+  cosphi = cos(2 * PI * (r[Z] - 0.0 * C * t) / L);
 
   e[X] = E0 * cosphi;
   e[Y] = 0.0;
-  e[Z] = -EB;
+  e[Z] = -EB * exp(-(r[X] * r[X] + r[Y] * r[Y]) / (EBWIDTH*EBWIDTH));
+  //e[Z] = -EB * cos(sqrt(r[X] * r[X] + r[Y] * r[Y]) / EBWIDTH);
 
   b[X] = B0;
-  b[Y] = E0 * cosphi / C;
+  b[Y] = -E0 * cosphi / C;
   b[Z] = 0.0;
 
 }
 
+
+static void
+electromagnetic_celestin_field(double t, const double *r, double *e, double *b)
+/* Calculates the electromagnetic field at a given time and location.
+   Returns it into the e and b pointers. */
+{
+  double a, a2;
+  int i;
+
+  a2 = NORM2(r);
+  a = sqrt(a2);
+  
+  for (i = 0; i < 3; i++) {
+    b[i] = 0;
+    e[i] = (r[i] / a) * E0 / a;
+  }
+  
+}
 
 static void
 electromagnetic_dipole_field(double t, const double *r, double *e, double *b)
@@ -265,7 +285,7 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
   
   fd = truncated_bethe_fd(gamma, gamma2, beta2);
 
-  electromagnetic_wave_field(t, r, e, b);
+  electromagnetic_celestin_field(t, r, e, b);
   
   for(i = 0; i < 3; i++){
     /* The derivative of r is calculated from the relativistic velocity. */
