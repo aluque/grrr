@@ -71,6 +71,13 @@ def set_parameter(name, value, ctype=c_double):
     var.value = value
 
 
+def get_parameter(name, ctype=c_double):
+    """ Gets the parameter with the given name.
+    """
+    var = ctype.in_dll(grrr, name)
+    return var.value
+
+
 
 def create_particle(ptype, r, p):
     """ Creates a particle of type ptype and momentum and position puts 

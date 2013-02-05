@@ -69,13 +69,15 @@ def output(t, final_t):
     p = grrr.particles_p()
     r = grrr.particles_r()
     eng = grrr.particles_energy(p[p[:, 2] > 0])
+    u = co.c / cos(grrr.get_parameter('THETA'))
+
     color = cm.jet(t / final_t)
 
     pylab.figure('phases')
-    pylab.plot(co.c * p[:, 2] / co.eV, r[:, 2] - co.c * t, 'o',
+    pylab.plot(co.c * p[:, 2] / co.eV, r[:, 2] - u * t, 'o',
                c=color, mew=0, ms=2.0)
     pylab.xlabel("$p_z$ [eV/c]")
-    pylab.ylabel("$z - ct$ [m]")
+    pylab.ylabel("$z - ut$ [m]")
     #pylab.semilogx()
 
     pylab.figure('histogram')
@@ -92,7 +94,7 @@ def output(t, final_t):
 
     pylab.figure('momentum')
     pt = sqrt(p[:, 0]**2 + p[:, 1]**2)
-    pylab.plot(co.c * abs(pt) / co.eV, co.c * abs(p[:, 2]) / co.eV, 
+    pylab.plot(co.c * p[:, 1] / co.eV, co.c * abs(p[:, 2]) / co.eV, 
                'o', mew=0, ms=2, c=color)
     pylab.xlabel("$p_\perp$ [eV/c]")
     pylab.ylabel("$p_z$ [eV/c]")
@@ -100,13 +102,13 @@ def output(t, final_t):
 
     pylab.figure('trajectories')
     rt = sqrt(r[:, 0]**2 + r[:, 1]**2)
-    pylab.plot(rt, r[:, 2] - co.c * t, 'o', mew=0, ms=2, c=color)
+    pylab.plot(r[:, 1], r[:, 2] - u * t, 'o', mew=0, ms=2, c=color)
     pylab.xlabel("$r_\perp$ [m]")
-    pylab.ylabel("$r_z - ct$ [m]")
+    pylab.ylabel("$r_z - ut$ [m]")
 
     pylab.figure('transversal r')
     rt = sqrt(r[:, 0]**2 + r[:, 1]**2)
-    pylab.plot(rt, co.c * p[:, 2] / co.eV, 
+    pylab.plot(r[:, 1], co.c * p[:, 2] / co.eV, 
                'o', mew=0, ms=2, c=color)
     pylab.xlabel("$r_\perp$ [m]")
     pylab.ylabel("$p_z$ [eV/c]")
