@@ -57,6 +57,9 @@ typedef struct particle_t {
 /* The prefactor in Bethe's ionization formula. */
 #define BETHE_PREFACTOR (2 * PI * AIR_DENSITY * AIR_Z * RE2 * MC2)
 
+#define BSTRAHLUNG_A (1.2744e-28)
+#define BSTRAHLUNG_B (-1.0027e-27 * MEV)
+
 #define X 0
 #define Y 1
 #define Z 2

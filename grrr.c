@@ -14,6 +14,7 @@
 #include "grrr.h"
 
 static double truncated_bethe_fd(double gamma, double gamma2, double beta2);
+static double bremsstrahlung_fd(double gamma);
 static double cross(const double *a, const double *b, double *r);
 static void rotate(double theta, const double *v, double *r);
 static int argmax(const double *p, int sign, int n);
@@ -41,6 +42,7 @@ const char *invok_name = "grrr";
 
 /* These are parameters.  Later they have to be set at run-time. */
 double E0 = 7.0e5;
+double THETA = PI / 4;
 double EB = 0.0;
 double EBWIDTH = 0.0;
 double EBIAS = 0.0;
@@ -152,16 +154,16 @@ electromagnetic_interf_field(double t, const double *r, double *e, double *b)
   double rprime[3], et[3], bt[3], e1[3], e2[3], b1[3], b2[3];
   int i;
 
-  rotate(PI / 4, r, rprime);
+  rotate(THETA, r, rprime);
 
   electromagnetic_wave_field(t, rprime, et, bt);
-  rotate(-PI / 4, et, e1);
-  rotate(-PI / 4, bt, b1);
+  rotate(-THETA, et, e1);
+  rotate(-THETA, bt, b1);
 
-  rotate(-PI / 4, r, rprime);
+  rotate(-THETA, r, rprime);
   electromagnetic_wave_field(t, rprime, et, bt);
-  rotate(PI / 4, et, e2);
-  rotate(PI / 4, bt, b2);
+  rotate(THETA, et, e2);
+  rotate(THETA, bt, b2);
 
   for (i = 0; i < 3; i++) {
     e[i] = e1[i] - e2[i];
@@ -271,6 +273,20 @@ moller_differential(double gamma, double gamma2, double beta2,
 
 
 static double
+bremsstrahlung_fd(double gamma)
+/* The stopping power of Bremsstrahlung radiation.  We use a linear
+   approximation that works quite well for energies above 10 MeV.
+   For lower energies Bremsstrahlung is anyway negligible against
+   collisional stopping. */
+{
+  double K;
+
+  K = MC2 * (gamma - 1);
+  return AIR_DENSITY * (BSTRAHLUNG_A * K + BSTRAHLUNG_B);
+}
+
+
+static double
 cross(const double *a, const double *b, double *r)
 {
   /* {-az by + ay bz, az bx - ax bz, -ay bx + ax by} */
@@ -326,6 +342,7 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
   beta2 = 1 - 1 / gamma2;
   
   fd = truncated_bethe_fd(gamma, gamma2, beta2);
+  fd += bremsstrahlung_fd(gamma);
 
   electromagnetic_interf_field(t, r, e, b);
   

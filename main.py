@@ -15,14 +15,15 @@ def main():
     grrr.set_parameter('L' , 10.0)
     grrr.set_parameter('B0', 20 * co.micro)
     grrr.set_parameter('E0',  50 * co.kilo / co.centi)
-    grrr.set_parameter('EB',  6 * co.kilo / co.centi)
+    grrr.set_parameter('EB',  0 * co.kilo / co.centi)
+    grrr.set_parameter('THETA' , pi / 4 + pi / 16)
     grrr.set_parameter('EBWIDTH', 4)
 
     dt = 0.5 * co.nano
     final_t = 2000 * co.nano
     output_dt = 10 * co.nano
     output_n = int(output_dt / dt)
-    particles_max = 20000
+    particles_max = 5000
 
     init_list(0, 50, 10000 * co.kilo * co.eV, 1000)
     
