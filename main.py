@@ -12,17 +12,17 @@ M2C4 = MC2**2
 
 def main():
     grrr.set_parameter('EBIAS', 0.0)
-    grrr.set_parameter('L' , 100.0)
+    grrr.set_parameter('L' , 10.0)
     grrr.set_parameter('B0', 20 * co.micro)
-    grrr.set_parameter('E0', 15 * co.kilo/ co.centi)
-    grrr.set_parameter('EB',  0.0 * co.kilo / co.centi)
-    grrr.set_parameter('EBWIDTH', 1e5)
+    grrr.set_parameter('E0',  50 * co.kilo / co.centi)
+    grrr.set_parameter('EB',  6 * co.kilo / co.centi)
+    grrr.set_parameter('EBWIDTH', 4)
 
     dt = 0.5 * co.nano
     final_t = 2000 * co.nano
     output_dt = 10 * co.nano
     output_n = int(output_dt / dt)
-    particles_max = 5000
+    particles_max = 20000
 
     init_list(0, 50, 10000 * co.kilo * co.eV, 1000)
     
@@ -67,7 +67,7 @@ def output(t, final_t):
 
     p = grrr.particles_p()
     r = grrr.particles_r()
-    eng = grrr.particles_energy(p)
+    eng = grrr.particles_energy(p[p[:, 2] > 0])
     color = cm.jet(t / final_t)
 
     pylab.figure('phases')
@@ -83,6 +83,8 @@ def output(t, final_t):
     am = 0.5 * (a[1:] + a[:-1])
     flt = h > 0
     pylab.plot(am[flt], h[flt], 'o', mew=0, ms=4, c=color)
+    savetxt('histogram.dat', c_[am[flt], h[flt], h[flt] / am[flt]])
+
     pylab.xlabel("$E$ [eV]")
     pylab.ylabel("f(E) [1/eV]")
     pylab.loglog()
@@ -108,6 +110,7 @@ def output(t, final_t):
     pylab.xlabel("$r_\perp$ [m]")
     pylab.ylabel("$p_z$ [eV/c]")
     #pylab.semilogy()
+
 
 if __name__ == '__main__':
     main()

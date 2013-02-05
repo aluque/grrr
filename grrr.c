@@ -134,11 +134,11 @@ electromagnetic_wave_field(double t, const double *r, double *e, double *b)
 
   e[X] = 0.0;
   e[Y] = E0 * cosphi;
-  //e[Z] = -EB * exp(-(r[X] * r[X] + r[Y] * r[Y]) / (EBWIDTH*EBWIDTH));
   e[Z] = 0.0;
+  //e[Z] = -EB * exp(-(r[X] * r[X] + r[Y] * r[Y]) / (EBWIDTH*EBWIDTH));
 
   b[X] = -E0 * cosphi / C;
-  b[Y] = B0;
+  b[Y] = 0.0;
   b[Z] = 0.0;
 
 }
@@ -167,7 +167,10 @@ electromagnetic_interf_field(double t, const double *r, double *e, double *b)
     e[i] = e1[i] - e2[i];
     b[i] = b1[i] - b2[i];
   }
-  
+
+  e[Z] -= E0;
+  b[X] += B0;
+
 }
 
 void
@@ -339,7 +342,7 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
     /* The stopping. */
     lorentz = part->charge * ELEMENTARY_CHARGE * (e[i] + mf[i]);
 
-    dp[i] = -0.0 * fd * p[i] / sqrt(p2) + lorentz;
+    dp[i] = -fd * p[i] / sqrt(p2) + lorentz;
 
     dp[i] *= h;
     dr[i] *= h;      
