@@ -17,7 +17,11 @@ grrr = cdll.LoadLibrary("libgrrr.so")
 ELECTRON, PROTON, PHOTON = 0, 1, 2
 
 # Vectors are stored as 3-arrays
-c_vector3 = c_double * 3
+c_vector3 = POINTER(c_double)
+
+# The functions that return em fields have this signature
+c_emfunc = CFUNCTYPE(None, c_double, c_vector3, c_vector3, c_vector3)
+c_emfunc_p = POINTER(c_emfunc)
 
 # This is the particle data type.  It is binary-compatible with its C 
 # counterpart.  That means that changes in grrr.h must be translated here
@@ -46,10 +50,11 @@ grrr.list_step_n_with_purging.restype = c_double
 grrr.list_purge.argtypes = [c_double]
 grrr.list_dump.argtypes = [c_char_p]
 grrr.list_clear.argtypes = []
-grrr.electromagnetic_interf_field.argtypes = [c_double, c_vector3, 
-                                              c_vector3, c_vector3]
-grrr.electromagnetic_wave_field.argtypes = [c_double, c_vector3, 
-                                            c_vector3, c_vector3]
+
+# grrr.electromagnetic_interf_field.argtypes = [c_double, c_vector3, 
+#                                               c_vector3, c_vector3]
+# grrr.electromagnetic_wave_field.argtypes = [c_double, c_vector3, 
+#                                             c_vector3, c_vector3]
 grrr.total_fd.argtypes = [c_double]
 grrr.total_fd.restype = c_double
 
@@ -63,7 +68,6 @@ list_purge = grrr.list_purge
 list_dump = grrr.list_dump
 list_clear = grrr.list_clear
 total_fd = grrr.total_fd
-electromagnetic_interf_field = grrr.electromagnetic_interf_field
 
 # Exported variables describing the particle list
 particle_head = POINTER(PARTICLE).in_dll(grrr, 'particle_head')
@@ -71,6 +75,13 @@ particle_tail = POINTER(PARTICLE).in_dll(grrr, 'particle_tail')
 particle_count = c_int.in_dll(grrr, 'particle_count')
 
 t = 0
+
+emfield_func = c_emfunc_p.in_dll(grrr, 'emfield_func')
+
+# This is to keep a reference to a callback function.  Otherwise
+# it will be gc'ed and we will run into memory corruption issues.
+_emfield_func = None
+
 
 def set_parameter(name, value, ctype=c_double):
     """ Sets one parameter with the given value.
@@ -87,6 +98,18 @@ def get_parameter(name, ctype=c_double):
     var = ctype.in_dll(grrr, name)
     return var.value
 
+
+def set_emfield_func(f):
+    # See above why we have to use a global variable here.
+    global _emfield_func
+    if hasattr(f, '__call__'):
+        _emfield_func = c_emfunc(f)
+        grrr.set_emfield_callback(_emfield_func)
+    else:
+        newfunc = c_emfunc.in_dll(grrr, 'emfield_' + f)
+        emfield_func.contents = newfunc
+
+    
 
 def particle_weight(value=None):
     """ Gets/sets the particle weight. """

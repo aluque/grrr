@@ -18,16 +18,15 @@ static double bremsstrahlung_fd(double gamma);
 static double cross(const double *a, const double *b, double *r);
 static void rotate(double theta, const double *v, double *r);
 static int argmax(const double *p, int sign, int n);
-void electromagnetic_field(double t, const double *r, double *e, 
-				  double *b);
-void electromagnetic_wave_field(double t, const double *r, double *e, 
-				       double *b);
-void electromagnetic_interf_field(double t, const double *r, double *e, 
-					 double *b);
-void electromagnetic_dipole_field(double t, const double *r, double *e, 
-					 double *b);
 static double moller_differential(double gamma, double gamma2, double beta2,
 				  double Kp);
+
+/* Several pre-defined em fields. */
+void emfield_static (double t, double *r, double *e, double *b);
+void emfield_wave   (double t, double *r, double *e, double *b);
+void emfield_const  (double t, double *r, double *e, double *b);
+void emfield_interf (double t, double *r, double *e, double *b);
+void emfield_dipole (double t, double *r, double *e, double *b);
 
 
 /* We will keep a global pointer to the beginning of the particle list
@@ -53,6 +52,18 @@ double B0 = 20e-6;
 double KTH = 0.0549351 * MEV;
 double GAMMATH;
 double L = 3.0;
+
+/* The function that computes em fields at any time in any point. */
+emfield_func_t emfield_func = &emfield_static;
+
+void call_emfield(emfield_func_t ef);
+
+void
+set_emfield_callback(emfield_func_t ef)
+/* Sets a function to calculate the em fields. */
+{
+  emfield_func = ef;
+}
 
 particle_t*
 particle_init(int ptype)
@@ -123,7 +134,7 @@ list_clear(void)
 }
 
 void
-electromagnetic_field(double t, const double *r, double *e, double *b)
+emfield_static(double t, double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
 {
@@ -136,7 +147,7 @@ electromagnetic_field(double t, const double *r, double *e, double *b)
 
 
 void
-electromagnetic_wave_field(double t, const double *r, double *e, double *b)
+emfield_wave(double t, double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
 {
@@ -157,12 +168,11 @@ electromagnetic_wave_field(double t, const double *r, double *e, double *b)
 
 
 void
-electromagnetic_const_field(double t, const double *r, double *e, double *b)
+emfield_const(double t, double *r, double *e, double *b)
 {
   e[X] = 0.0;
   e[Y] = 0.0; 
   e[Z] = EB;
-  //e[Z] = -EB * exp(-(r[X] * r[X] + r[Y] * r[Y]) / (EBWIDTH*EBWIDTH));
 
   b[X] = B0;
   b[Y] = 0.0;
@@ -170,7 +180,7 @@ electromagnetic_const_field(double t, const double *r, double *e, double *b)
 }
 
 void
-electromagnetic_interf_field(double t, const double *r, double *e, double *b)
+emfield_interf(double t, double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
 {
@@ -179,12 +189,12 @@ electromagnetic_interf_field(double t, const double *r, double *e, double *b)
 
   rotate(THETA, r, rprime);
 
-  electromagnetic_wave_field(t, rprime, et, bt);
+  emfield_wave(t, rprime, et, bt);
   rotate(-THETA, et, e1);
   rotate(-THETA, bt, b1);
 
   rotate(-THETA, r, rprime);
-  electromagnetic_wave_field(t, rprime, et, bt);
+  emfield_wave(t, rprime, et, bt);
   rotate(THETA, et, e2);
   rotate(THETA, bt, b2);
 
@@ -201,7 +211,7 @@ electromagnetic_interf_field(double t, const double *r, double *e, double *b)
 }
 
 void
-electromagnetic_celestin_field(double t, const double *r, double *e, double *b)
+emfield_celestin(double t, double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
 {
@@ -219,7 +229,7 @@ electromagnetic_celestin_field(double t, const double *r, double *e, double *b)
 }
 
 void
-electromagnetic_dipole_field(double t, const double *r, double *e, double *b)
+emfield_dipole(double t, double *r, double *e, double *b)
 /* The EM field created by a dipole at r=0,0,0 */
 {
   // Here a is the abs of r, but the r var is already taken.
@@ -352,7 +362,7 @@ total_fd(double K)
 
 
 int
-drpdt(particle_t *part, double t, const double *r, const double *p, 
+drpdt(particle_t *part, double t, double *r, const double *p, 
       double *dr, double *dp, double h)
 /* Computes the derivatives of r and p for the particle *part.
    Note that part->p and part->r are ignored.  The particle is only needed
@@ -389,7 +399,7 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
   fd  = truncated_bethe_fd(gamma, gamma2, beta2);
   fd += bremsstrahlung_fd(gamma);
 
-  electromagnetic_const_field(t, r, e, b);
+  (*emfield_func) (t, r, e, b);
   
   for(i = 0; i < 3; i++){
     /* The derivative of r is calculated from the relativistic velocity. */

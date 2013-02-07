@@ -1,3 +1,4 @@
+import sys
 from collections import namedtuple
 
 from numpy import *
@@ -21,17 +22,26 @@ def main():
     grrr.set_parameter('E0',  20 * co.kilo / co.centi)
     grrr.set_parameter('EB',  -5 * co.kilo / co.centi)
     #grrr.set_parameter('THETA' , pi / 4 + pi / 16)
-    grrr.set_parameter('THETA' , 0.68)
+    grrr.set_parameter('THETA' , 0.0)
     grrr.set_parameter('EBWIDTH', 4)
+    grrr.set_emfield_func(emfunc_const)
+    #grrr.set_emfield_func(emfunc_test)
+    # run(init_hooks=[],
+    #     inner_hooks=[output],
+    #     finish_hooks=[pylab.show])
+    run()
 
-    run(init_hooks=[],
-        inner_hooks=[output],
-        finish_hooks=[pylab.show])
+EB =  -5 * co.kilo / co.centi
+B0 = 20 * co.micro
+
+def emfunc_const(t, r, e, b):
+    e[0], e[1], e[2] = 0.0, 0.0, EB;
+    b[0], b[1], b[2] = B0, 0.0, 0.0;
     
 
 def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
     dt = 0.5 * co.nano
-    final_t = 10000 * co.nano
+    final_t = 1000 * co.nano
     output_dt = 100 * co.nano
     output_n = int(output_dt / dt)
     max_particles = 5000

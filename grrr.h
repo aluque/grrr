@@ -21,6 +21,9 @@ typedef struct particle_t {
 } particle_t;
 
 
+/* Signature for the functions that calculate em-fields. */
+typedef void (*emfield_func_t)(double, double *, double *, double *);
+
 #define PI 3.141592653589793
 
 /* Electron mass. */
@@ -91,13 +94,14 @@ typedef struct particle_t {
 
 /* Function declarations. */
 /* grrr.c */
+void set_emfield_callback(emfield_func_t ef);
 particle_t *particle_init(int ptype);
 void particle_delete(particle_t *part);
 void particle_append(particle_t *part);
 void list_clear(void);
 
 double total_fd(double K);
-int drpdt(particle_t *part, double t, const double *r, const double *p, 
+int drpdt(particle_t *part, double t, double *r, const double *p, 
 	  double *dr, double *dp, double h);
 int rk4(particle_t *part, double t, double dt);
 int collision(particle_t *part, double dt, double *K1, double *K2);
