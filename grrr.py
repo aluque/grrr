@@ -40,20 +40,30 @@ grrr.particle_append.argtypes = [POINTER(PARTICLE)]
 grrr.list_step.argtypes = [c_double, c_double]
 grrr.list_step_n.argtypes = [c_double, c_double, c_int]
 grrr.list_step_n.restype = c_double
+grrr.list_step_n_with_purging.argtypes = [c_double, c_double, c_int, 
+                                          c_int, c_double]
+grrr.list_step_n_with_purging.restype = c_double
 grrr.list_purge.argtypes = [c_double]
 grrr.list_dump.argtypes = [c_char_p]
+grrr.list_clear.argtypes = []
 grrr.electromagnetic_interf_field.argtypes = [c_double, c_vector3, 
                                               c_vector3, c_vector3]
 grrr.electromagnetic_wave_field.argtypes = [c_double, c_vector3, 
                                             c_vector3, c_vector3]
+grrr.total_fd.argtypes = [c_double]
+grrr.total_fd.restype = c_double
+
 
 # These functions are useful outside this module.  The rest is buried in
 # the grrr object here.
 list_step = grrr.list_step
 list_step_n = grrr.list_step_n
+list_step_n_with_purging = grrr.list_step_n_with_purging
 list_purge = grrr.list_purge
 list_dump = grrr.list_dump
-
+list_clear = grrr.list_clear
+total_fd = grrr.total_fd
+electromagnetic_interf_field = grrr.electromagnetic_interf_field
 
 # Exported variables describing the particle list
 particle_head = POINTER(PARTICLE).in_dll(grrr, 'particle_head')
@@ -77,6 +87,14 @@ def get_parameter(name, ctype=c_double):
     var = ctype.in_dll(grrr, name)
     return var.value
 
+
+def particle_weight(value=None):
+    """ Gets/sets the particle weight. """
+    var = c_double.in_dll(grrr, 'particle_weight')
+    if value is not None:
+        var.value = value
+
+    return var.value
 
 
 def create_particle(ptype, r, p):

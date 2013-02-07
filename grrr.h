@@ -94,7 +94,9 @@ typedef struct particle_t {
 particle_t *particle_init(int ptype);
 void particle_delete(particle_t *part);
 void particle_append(particle_t *part);
+void list_clear(void);
 
+double total_fd(double K);
 int drpdt(particle_t *part, double t, const double *r, const double *p, 
 	  double *dr, double *dp, double h);
 int rk4(particle_t *part, double t, double dt);
@@ -103,6 +105,8 @@ void momenta(const double *p, double K1, double K2, double *p1, double *p2);
 particle_t *timestep(particle_t *part, double t, double dt);
 void list_step(double t, double dt);
 double list_step_n(double t, double dt, int n);
+double list_step_n_with_purging(double t, double dt, int n, 
+				int max_particles, double fraction);
 void list_purge(double fraction);
 void list_dump(char *fname);
 

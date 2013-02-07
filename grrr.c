@@ -37,6 +37,9 @@ particle_t *particle_head = NULL, *particle_tail = NULL;
 /* We also have a counter of the total number of particles. */
 int particle_count = 0;
 
+/* When we use super-particles, we track the particle weight. */
+double particle_weight = 1.0;
+
 /* Name of this program. */
 const char *invok_name = "grrr";
 
@@ -110,7 +113,14 @@ particle_append(particle_t *part)
   particle_count++;
 }
 
-
+void
+list_clear(void)
+/* Deletes all particles from the list and releases their memory. */
+{
+  while (particle_head != NULL) {
+    particle_delete(particle_head);
+  }
+}
 
 void
 electromagnetic_field(double t, const double *r, double *e, double *b)
@@ -147,6 +157,19 @@ electromagnetic_wave_field(double t, const double *r, double *e, double *b)
 
 
 void
+electromagnetic_const_field(double t, const double *r, double *e, double *b)
+{
+  e[X] = 0.0;
+  e[Y] = 0.0; 
+  e[Z] = EB;
+  //e[Z] = -EB * exp(-(r[X] * r[X] + r[Y] * r[Y]) / (EBWIDTH*EBWIDTH));
+
+  b[X] = B0;
+  b[Y] = 0.0;
+  b[Z] = 0.0;
+}
+
+void
 electromagnetic_interf_field(double t, const double *r, double *e, double *b)
 /* Calculates the electromagnetic field at a given time and location.
    Returns it into the e and b pointers. */
@@ -170,8 +193,10 @@ electromagnetic_interf_field(double t, const double *r, double *e, double *b)
     b[i] = b1[i] - b2[i];
   }
 
-  e[Z] -= E0;
+  e[Z] += EB;
   b[X] += B0;
+
+  // b[X] = b[Y] = b[Z] = 0;
 
 }
 
@@ -306,6 +331,26 @@ rotate(double theta, const double *v, double *r)
   r[Z] = v[Y] * sin(theta) + v[Z] * cos(theta);
 }
 
+
+double 
+total_fd(double K)
+/* This is for debugging only: check that we have the correct fd, 
+   including the Bremsstrahlung term. */
+{
+  double gamma, gamma2, beta2, fd;
+
+  gamma = 1 + K / MC2;
+  gamma2 = gamma * gamma;
+
+  beta2 = 1 - 1 / gamma2;
+  
+  fd = truncated_bethe_fd(gamma, gamma2, beta2);
+  fd += bremsstrahlung_fd(gamma);
+
+  return fd;
+}
+
+
 int
 drpdt(particle_t *part, double t, const double *r, const double *p, 
       double *dr, double *dp, double h)
@@ -341,10 +386,10 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
 
   beta2 = 1 - 1 / gamma2;
   
-  fd = truncated_bethe_fd(gamma, gamma2, beta2);
+  fd  = truncated_bethe_fd(gamma, gamma2, beta2);
   fd += bremsstrahlung_fd(gamma);
 
-  electromagnetic_interf_field(t, r, e, b);
+  electromagnetic_const_field(t, r, e, b);
   
   for(i = 0; i < 3; i++){
     /* The derivative of r is calculated from the relativistic velocity. */
@@ -356,7 +401,6 @@ drpdt(particle_t *part, double t, const double *r, const double *p,
 
   for(i = 0; i < 3; i++){
     double lorentz;
-    /* The stopping. */
     lorentz = part->charge * ELEMENTARY_CHARGE * (e[i] + mf[i]);
 
     dp[i] = -fd * p[i] / sqrt(p2) + lorentz;
@@ -621,6 +665,24 @@ list_step_n(double t, double dt, int n)
   return t;
 }
 
+double
+list_step_n_with_purging(double t, double dt, int n, 
+			 int max_particles, double fraction)
+/* Performs n time-steps over the full list. Returns the final time. */
+{
+  int i;
+
+  for(i = 0; i < n; i++) {
+    list_step(t, dt);
+    if(particle_count > max_particles) {
+      list_purge(fraction);
+    }
+    t += dt;
+  }
+
+  return t;
+}
+
 
 void
 list_purge(double fraction)
@@ -637,6 +699,8 @@ list_purge(double fraction)
     }
     part = next;
   }  
+
+  particle_weight /= fraction;
 }
 
 
