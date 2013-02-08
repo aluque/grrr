@@ -45,7 +45,7 @@ def emfunc_const(t, r, e, b):
     
 
 def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
-    dt = 0.01 * co.nano
+    dt = 0.0025 * co.nano
     final_t = 500 * co.nano
     output_dt = 10 * co.nano
     output_n = int(output_dt / dt)

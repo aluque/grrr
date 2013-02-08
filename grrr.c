@@ -18,8 +18,12 @@ static double bremsstrahlung_fd(double gamma);
 static double cross(const double *a, const double *b, double *r);
 static void rotate(double theta, const double *v, double *r);
 static int argmax(const double *p, int sign, int n);
+static void perp_unit_vectors(const double p[3], double pabs, double up[3],
+			      double a[3], double b[3]);
 static double moller_differential(double gamma, double gamma2, double beta2,
 				  double Kp);
+static double coulomb_differential(double gamma2, double beta2, double p2, 
+				   double rtheta);
 
 /* Several pre-defined em fields. */
 void emfield_static (double t, double *r, double *e, double *b);
@@ -291,6 +295,7 @@ truncated_bethe_fd(double gamma, double gamma2, double beta2)
 static double
 moller_differential(double gamma, double gamma2, double beta2,
 		    double Kp)
+/* The moller differential cross-section. */
 {
   double A, T1, T2, T3;
 
@@ -303,6 +308,25 @@ moller_differential(double gamma, double gamma2, double beta2,
   T3 = 1. / (M2C4 * gamma2);
 
   return  A * (T1 + T2 + T3);
+}
+
+
+static double
+coulomb_differential(double gamma2, double beta2, double p2, 
+		     double theta)
+/* The formula for the elastic coulomb scattering. */
+{
+  double A, T, sin2;
+  
+  sin2 = sin(theta / 2);
+  sin2 *= sin2;
+
+  A = COULOMB_PREFACTOR / (beta2 * beta2) / gamma2;
+  T = (1. - beta2 * sin2) / pow(sin2 + COULOMB_B / p2, 2);
+  
+  /* The 2 pi sin(theta) comes from
+     d\Omega = 2 pi sin(theta) dtheta. */
+  return  A * T * 2 * PI * sin(theta);
 }
 
 
@@ -471,7 +495,7 @@ rk4(particle_t *part, double t, double dt)
 
 
 int
-collision(particle_t *part, double dt, double *K1, double *K2)
+ionizing_collision(particle_t *part, double dt, double *K1, double *K2)
 /* Checks if the electron expriences a Moller collision with scattered
    energy larger than Kth.  If it does, returns the K1, K2 of the
    two resulting particles. */
@@ -494,13 +518,13 @@ collision(particle_t *part, double dt, double *K1, double *K2)
   Kp = KTH + rand()  * (K / 2 - KTH) /  RAND_MAX;
   W = rand() / (K / 2 - KTH) / RAND_MAX;
 
-  P = v * dt * moller_differential(gamma, gamma2, beta2, Kp);
+  P    = v * dt * moller_differential(gamma, gamma2, beta2, Kp);
   pmax = v * dt * moller_differential(gamma, gamma2, beta2, KTH);
   if(pmax > 1.0 / (K / 2 - KTH)) {
-    printf("! ! ! ERROR: pmax > 1/DK ! ! !\n");
-    printf("max(P) = %g,\t1/DK = %g\n",
-	   pmax,
-	   1.0 / (K / 2 - KTH));
+    fprintf(stderr, "%s: error: pmax > 1/DK\n", invok_name);
+    fprintf(stderr, "max(P) = %g,\t1/DK = %g\n",
+	    pmax,
+	    1.0 / (K / 2 - KTH));
   }
 
   if (W > P) {
@@ -531,15 +555,15 @@ argmax(const double *p, int sign, int n)
 }
 
 void
-momenta(const double *p, double K1, double K2, double *p1, double *p2)
+ionizing_momenta(const double *p, double K1, double K2, double *p1, double *p2)
 /* Finds the p1, p2 of a relativistic collision where the incident
    momentum is p and the scattered energies are K1 and K2.
   WARNING: This routine DOES NOT WORK if p is equal to either p1 or p2.
 */
 {
   double E1, E2, E12, E22, psq, pabs, p1sq, p2sq, p1perp, p2perp;
-  double a[3], b[3], u[3], up[3], t, dotaup, aabs, theta;
-  int i, imin, imax;
+  double u[3], up[3], a[3], b[3], theta;
+  int i;
 
   /* We first find the absolute value of the momenta from the 
      energy-momentum relation. */
@@ -565,9 +589,51 @@ momenta(const double *p, double K1, double K2, double *p1, double *p2)
   p1perp = sqrt(p1sq - NORM2(p1));
   p2perp = sqrt(p2sq - NORM2(p2));
 
-  /* Now it comes the hard part: we have to break the rotational 
+  perp_unit_vectors(p, pabs, up, a, b);
+
+  /* Now we generate a random angle */
+  theta = 2 * PI * rand() / RAND_MAX;
+
+  for (i = 0; i < 3; i++) {
+    u[i] = a[i] * cos(theta) + b[i] * sin(theta);
+    p1[i] += u[i] * p1perp;
+    p2[i] -= u[i] * p2perp;
+  }
+}
+
+void
+elastic_momentum(double *p, double theta, double *pnew)
+/* Calculates the new momentum after an elastic collision. 
+   Note that pnew CAN be the same as p if you want to throw away p.
+*/
+{
+  double psq, pabs, phi, up[3], a[3], b[3];
+  int i;
+
+  /* TODO: repeated calculation!. */
+  psq = NORM2(p);
+  pabs = sqrt(psq);
+
+  perp_unit_vectors(p, pabs, up, a, b);
+  
+  phi = 2 * PI * rand() / RAND_MAX;
+  for (i = 0; i < 3; i++) {
+    pnew[i] = ( up[i] * pabs * cos(theta)
+	       + a[i] * pabs * sin(theta) * cos(phi)
+	       + b[i] * pabs * sin(theta) * sin(phi));
+  }
+}
+
+static void
+perp_unit_vectors(const double p[3], double pabs, double up[3], 
+		  double a[3], double b[3])
+{
+  /* This is an algorithm to break the rotational 
      symmetry around p.  For that we construct two unit vectors 
      perpendicular to p. First we build a vector that is not parallel to p. */
+  double t, dotaup, aabs;
+  int i, imax, imin;
+
   for (i = 0; i < 3; i++) {
     a[i] = p[i];
   }
@@ -599,16 +665,45 @@ momenta(const double *p, double K1, double K2, double *p1, double *p2)
 
   /* Finally we get the second vector with a cross product */
   cross(a, up, b);
-  
-  /* Now we generate a random angle */
-  theta = 2 * PI * rand() / RAND_MAX;
+}
 
-  for (i = 0; i < 3; i++) {
-    u[i] = a[i] * cos(theta) + b[i] * sin(theta);
-    p1[i] += u[i] * p1perp;
-    p2[i] -= u[i] * p2perp;
+
+int
+elastic_collision(particle_t *part, double dt, double *theta)
+/* Checks if the particle undergoes an elastic collision dirung dt.
+   If it does, return the theta of the collision (i.e. the change in
+   the direction of p. */
+{
+  /* TODO: We have already calculated these things for the same
+     particle.  Do not repeat calculations! */
+
+  double p2, gamma2, gamma, beta2, v;
+  double pmax, rtheta, P, W;
+
+  p2 = NORM2(part->p);
+  gamma2 = 1. + p2 / (MC2 * M);
+  gamma = sqrt(gamma2);
+  beta2 = 1 - 1 / gamma2;
+  v = C * sqrt(beta2);
+  
+  rtheta = PI * rand() / RAND_MAX;
+  W = rand() / PI / RAND_MAX;
+
+  P    = v * dt * coulomb_differential(gamma2, beta2, p2, rtheta);
+  pmax = v * dt * coulomb_differential(gamma2, beta2, p2, 0.0);
+
+  if(pmax > 1.0 / PI) {
+    fprintf(stderr, "%s: error: pmax > 1 / PI\n", invok_name);
+    fprintf(stderr, "max(P) = %g\n", pmax);
   }
 
+  if (W > P) {
+    /* No collision. */
+    return 0;
+  } else {
+    *theta = rtheta;
+    return 1;
+  }
 }
 
 
@@ -622,13 +717,19 @@ timestep(particle_t *part, double t, double dt)
    occurs).
 */
 {
-  int collides, thermal;
+  int collides, elastic, thermal;
   particle_t *newpart;
   double K1, K2;
 
-  collides = collision(part, dt, &K1, &K2);
+  collides = ionizing_collision(part, dt, &K1, &K2);
 
   if(!collides) {
+    /* double theta; */
+    /* elastic = elastic_collision(part, dt, &theta); */
+    /* if (elastic) { */
+    /*   elastic_momentum(part->p, theta, part->p); */
+    /* } */
+
     newpart = part->next;
     thermal = rk4(part, t, dt);
     if(thermal) {
@@ -644,7 +745,7 @@ timestep(particle_t *part, double t, double dt)
     memcpy(newpart->r, part->r, 3 * sizeof(double));
     memcpy(p, part->p, 3 * sizeof(double));
 
-    momenta(p, K1, K2, part->p, newpart->p);
+    ionizing_momenta(p, K1, K2, part->p, newpart->p);
 
     particle_append(newpart);
     return part;

@@ -41,6 +41,16 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define RE 2.8179403267e-15
 #define RE2 (RE * RE)
 
+/* Planck's constant. */
+#define HBAR 1.0545717253362894e-34
+#define HBAR2 (HBAR * HBAR)
+
+/* Some constants appearing in the Coulomb scattering formula. */
+#define COMPTON_WAVELENGTH (HBAR / (M * C))
+#define COULOMB_A (183.8 * COMPTON_WAVELENGTH * pow(AIR_Z, -1.0 / 3.0))
+#define COULOMB_A2 (COULOMB_A * COULOMB_A)
+#define COULOMB_B (0.25 * HBAR2 / COULOMB_A2)
+
 /* Elementary charge and eV, keV, MeV. */
 #define ELEMENTARY_CHARGE 1.602176565e-19
 #define EV ELEMENTARY_CHARGE
@@ -60,6 +70,8 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 /* The prefactor in Bethe's ionization formula. */
 #define BETHE_PREFACTOR (2 * PI * AIR_DENSITY * AIR_Z * RE2 * MC2)
 
+/* The prefactor in the Coulomg scattering formula. */
+#define COULOMB_PREFACTOR (0.25 * AIR_DENSITY * (AIR_Z * RE2) * (AIR_Z * RE2))
 #define BSTRAHLUNG_A (1.2744e-28)
 #define BSTRAHLUNG_B (-1.0027e-27 * MEV)
 
@@ -104,8 +116,11 @@ double total_fd(double K);
 int drpdt(particle_t *part, double t, double *r, const double *p, 
 	  double *dr, double *dp, double h);
 int rk4(particle_t *part, double t, double dt);
-int collision(particle_t *part, double dt, double *K1, double *K2);
-void momenta(const double *p, double K1, double K2, double *p1, double *p2);
+int ionizing_collision(particle_t *part, double dt, double *K1, double *K2);
+int elastic_collision(particle_t *part, double dt, double *theta);
+void ionizing_momenta(const double *p, double K1, double K2, 
+		      double *p1, double *p2);
+void elastic_momentum(double *p, double theta, double *pnew);
 particle_t *timestep(particle_t *part, double t, double dt);
 void list_step(double t, double dt);
 double list_step_n(double t, double dt, int n);
