@@ -47,9 +47,8 @@ double E0 = 7.0e5;
 double THETA = PI / 4;
 double EB = 0.0;
 double EBWIDTH = 0.0;
-double EBIAS = 0.0;
 double B0 = 20e-6;
-double KTH = 0.0549351 * MEV;
+double KTH = 0.005 * MEV;
 double GAMMATH;
 double L = 3.0;
 
@@ -142,7 +141,7 @@ emfield_static(double t, double *r, double *e, double *b)
   b[Y] = B0;
 
   e[X] = e[Y] = 0.0;
-  e[Z] = -E0 * (EBIAS + (1.0 - EBIAS) * cos(2 * PI * (r[Z] - 0.0 * C * t) / L)); 
+  e[Z] = -E0 * cos(2 * PI * r[Z] / L) + EB; 
 }
 
 
@@ -478,6 +477,7 @@ collision(particle_t *part, double dt, double *K1, double *K2)
    two resulting particles. */
 {
   double p2, gamma2, gamma, beta2, v, K, Kp, W, P;
+  double pmax;
 
   p2 = NORM2(part->p);
   gamma2 = 1. + p2 / (MC2 * M);
@@ -495,6 +495,13 @@ collision(particle_t *part, double dt, double *K1, double *K2)
   W = rand() / (K / 2 - KTH) / RAND_MAX;
 
   P = v * dt * moller_differential(gamma, gamma2, beta2, Kp);
+  pmax = v * dt * moller_differential(gamma, gamma2, beta2, KTH);
+  if(pmax > 1.0 / (K / 2 - KTH)) {
+    printf("! ! ! ERROR: pmax > 1/DK ! ! !\n");
+    printf("max(P) = %g,\t1/DK = %g\n",
+	   pmax,
+	   1.0 / (K / 2 - KTH));
+  }
 
   if (W > P) {
     /* No collision. */

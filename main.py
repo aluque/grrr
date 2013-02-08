@@ -8,6 +8,7 @@ from matplotlib import cm
 
 import grrr
 from plotfield import evaluate_fields, plot_field
+import fitpl
 
 M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
@@ -15,24 +16,28 @@ M2C4 = MC2**2
 
 Stats = namedtuple('Stats', ['max_energy', 'avg_energy'])
 
+EB =  -25 * co.kilo / co.centi
+B0 =  20 * co.micro
+E0 =   0 * co.kilo / co.centi
+L  =  100
+
 def main():
-    grrr.set_parameter('EBIAS', 0.0)
-    grrr.set_parameter('L' , 40.0)
-    grrr.set_parameter('B0', 20 * co.micro)
-    grrr.set_parameter('E0',  20 * co.kilo / co.centi)
-    grrr.set_parameter('EB',  -5 * co.kilo / co.centi)
+    grrr.set_parameter('L' , L)
+    grrr.set_parameter('B0', B0)
+    grrr.set_parameter('E0', E0)
+    grrr.set_parameter('EB',  EB)
     #grrr.set_parameter('THETA' , pi / 4 + pi / 16)
     grrr.set_parameter('THETA' , 0.0)
     grrr.set_parameter('EBWIDTH', 4)
-    grrr.set_emfield_func(emfunc_const)
-    #grrr.set_emfield_func(emfunc_test)
-    # run(init_hooks=[],
-    #     inner_hooks=[output],
-    #     finish_hooks=[pylab.show])
-    run()
+    grrr.set_emfield_func('static')
 
-EB =  -5 * co.kilo / co.centi
-B0 = 20 * co.micro
+    grrr.list_clear()
+    init_list(0, 50, 10000 * co.kilo * co.eV, 1000)
+
+    run(init_hooks=[],
+        inner_hooks=[output],
+        finish_hooks=[pylab.show])
+
 
 def emfunc_const(t, r, e, b):
     e[0], e[1], e[2] = 0.0, 0.0, EB;
@@ -40,13 +45,11 @@ def emfunc_const(t, r, e, b):
     
 
 def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
-    dt = 0.5 * co.nano
-    final_t = 1000 * co.nano
-    output_dt = 100 * co.nano
+    dt = 0.01 * co.nano
+    final_t = 500 * co.nano
+    output_dt = 10 * co.nano
     output_n = int(output_dt / dt)
     max_particles = 5000
-
-    print('max. energy = {:g} MeV'.format(max_energy() / co.eV / co.mega))
 
     t = 0
     purge_factor = 0.5
@@ -54,8 +57,6 @@ def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
     for f in init_hooks:
         f()
 
-    grrr.list_clear()
-    init_list(0, 50, 10000 * co.kilo * co.eV, 1000)
 
     while (t <= final_t):
         t = grrr.list_step_n_with_purging(t, dt, output_n, max_particles,
@@ -69,17 +70,6 @@ def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
 
     for f in finish_hooks:
         f()
-
-
-def max_energy():
-    theta = grrr.get_parameter('THETA')
-    E0 = grrr.get_parameter('E0')
-    EB = grrr.get_parameter('EB')
-    L = grrr.get_parameter('L')
-    A = co.elementary_charge * L
-
-    return (A * (abs(EB) / 2 + 
-                 2 * abs(E0) * tan(theta) / pi))
 
 
 def stats():
@@ -147,6 +137,13 @@ def output(t, final_t):
     am = 0.5 * (a[1:] + a[:-1])
     flt = h > 0
     pylab.plot(am[flt], h[flt], 'o', mew=0, ms=4, c=color)
+
+    pl, _ = fitpl.fitpl(am[flt], h[flt], p0=array([1e-6, -1.0, 7.5e6 * co.eV]))
+    print("alpha = {1:.4g}; cutoff = {2:.3g} eV".format(*pl))
+
+    pylab.plot(am[flt], fitpl.applypl(pl, am[flt]), c=color, alpha=0.3, lw=3.0)
+    
+
     savetxt('histogram.dat', c_[am[flt], h[flt], h[flt] / am[flt]])
 
     pylab.xlabel("$E$ [eV]")
