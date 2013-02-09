@@ -31,6 +31,7 @@ void emfield_wave   (double t, double *r, double *e, double *b);
 void emfield_const  (double t, double *r, double *e, double *b);
 void emfield_interf (double t, double *r, double *e, double *b);
 void emfield_dipole (double t, double *r, double *e, double *b);
+void emfield_eval   (double t, double *r, double *e, double *b);
 
 
 /* We will keep a global pointer to the beginning of the particle list
@@ -66,6 +67,16 @@ set_emfield_callback(emfield_func_t ef)
 /* Sets a function to calculate the em fields. */
 {
   emfield_func = ef;
+}
+
+void
+emfield_eval(double t, double *r, double *e, double *b)
+
+/* Evaluates the electric field at a given point.  This is needed only
+ if you want to evaluates em fields directly from python.  I am unable
+ to do this using only ctypes.*/
+{
+  (*emfield_func) (t, r, e, b);
 }
 
 particle_t*
@@ -520,12 +531,12 @@ ionizing_collision(particle_t *part, double dt, double *K1, double *K2)
 
   P    = v * dt * moller_differential(gamma, gamma2, beta2, Kp);
   pmax = v * dt * moller_differential(gamma, gamma2, beta2, KTH);
-  if(pmax > 1.0 / (K / 2 - KTH)) {
-    fprintf(stderr, "%s: error: pmax > 1/DK\n", invok_name);
-    fprintf(stderr, "max(P) = %g,\t1/DK = %g\n",
-	    pmax,
-	    1.0 / (K / 2 - KTH));
-  }
+  /* if(pmax > 1.0 / (K / 2 - KTH)) { */
+  /*   fprintf(stderr, "%s: error: pmax > 1/DK\n", invok_name); */
+  /*   fprintf(stderr, "max(P) = %g,\t1/DK = %g\n", */
+  /* 	    pmax, */
+  /* 	    1.0 / (K / 2 - KTH)); */
+  /* } */
 
   if (W > P) {
     /* No collision. */
@@ -724,11 +735,11 @@ timestep(particle_t *part, double t, double dt)
   collides = ionizing_collision(part, dt, &K1, &K2);
 
   if(!collides) {
-    /* double theta; */
-    /* elastic = elastic_collision(part, dt, &theta); */
-    /* if (elastic) { */
-    /*   elastic_momentum(part->p, theta, part->p); */
-    /* } */
+    double theta;
+    elastic = elastic_collision(part, dt, &theta);
+    if (elastic) {
+      elastic_momentum(part->p, theta, part->p);
+    }
 
     newpart = part->next;
     thermal = rk4(part, t, dt);

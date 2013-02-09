@@ -17,10 +17,11 @@ grrr = cdll.LoadLibrary("libgrrr.so")
 ELECTRON, PROTON, PHOTON = 0, 1, 2
 
 # Vectors are stored as 3-arrays
-c_vector3 = POINTER(c_double)
+c_vector3 = c_double * 3
 
 # The functions that return em fields have this signature
-c_emfunc = CFUNCTYPE(None, c_double, c_vector3, c_vector3, c_vector3)
+c_emfunc = CFUNCTYPE(None, c_double, POINTER(c_double), POINTER(c_double), 
+                     POINTER(c_double))
 c_emfunc_p = POINTER(c_emfunc)
 
 # This is the particle data type.  It is binary-compatible with its C 
@@ -50,6 +51,8 @@ grrr.list_step_n_with_purging.restype = c_double
 grrr.list_purge.argtypes = [c_double]
 grrr.list_dump.argtypes = [c_char_p]
 grrr.list_clear.argtypes = []
+grrr.emfield_eval.argtypes = [c_double, c_vector3, c_vector3, c_vector3]
+grrr.emfield_eval.restype = None
 
 # grrr.electromagnetic_interf_field.argtypes = [c_double, c_vector3, 
 #                                               c_vector3, c_vector3]
@@ -68,6 +71,7 @@ list_purge = grrr.list_purge
 list_dump = grrr.list_dump
 list_clear = grrr.list_clear
 total_fd = grrr.total_fd
+emfield_eval = grrr.emfield_eval
 
 # Exported variables describing the particle list
 particle_head = POINTER(PARTICLE).in_dll(grrr, 'particle_head')

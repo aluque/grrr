@@ -16,25 +16,27 @@ M2C4 = MC2**2
 
 Stats = namedtuple('Stats', ['max_energy', 'avg_energy'])
 
-EB =  -25 * co.kilo / co.centi
+EB =  -0 * co.kilo / co.centi
 B0 =  20 * co.micro
-E0 =   0 * co.kilo / co.centi
-L  =  100
+E0 =   10 * co.kilo / co.centi
+L  =  5
+
+fdist = open("dist.dat", "w")
 
 def main():
     grrr.set_parameter('L' , L)
     grrr.set_parameter('B0', B0)
     grrr.set_parameter('E0', E0)
     grrr.set_parameter('EB',  EB)
-    #grrr.set_parameter('THETA' , pi / 4 + pi / 16)
-    grrr.set_parameter('THETA' , 0.0)
+    grrr.set_parameter('THETA' , pi / 8)
+    #grrr.set_parameter('THETA' , 0.0)
     grrr.set_parameter('EBWIDTH', 4)
-    grrr.set_emfield_func('static')
+    grrr.set_emfield_func('wave')
 
     grrr.list_clear()
     init_list(0, 50, 10000 * co.kilo * co.eV, 1000)
 
-    run(init_hooks=[],
+    run(init_hooks=[init_output],
         inner_hooks=[output],
         finish_hooks=[pylab.show])
 
@@ -47,9 +49,9 @@ def emfunc_const(t, r, e, b):
 def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
     dt = 0.0025 * co.nano
     final_t = 500 * co.nano
-    output_dt = 10 * co.nano
+    output_dt = 20 * co.nano
     output_n = int(output_dt / dt)
-    max_particles = 5000
+    max_particles = 2000
 
     t = 0
     purge_factor = 0.5
@@ -101,13 +103,15 @@ def init_list(zmin, zmax, emax, n):
 
 
 def init_output():
-    y = linspace(-200, 200, 400)
-    z = linspace(-1200, 0, 1200)
+    print("Initializing output...")
+    y = linspace(-5 * L, 5 * L, 200)
+    z = linspace(-100, 50, 350)
     e, b = evaluate_fields(0, y, z)
 
     pylab.figure('trajectories')
     plot_field(y, z, e, b)
 
+    print("Done.")
     # pylab.figure('trajectories / pz')
     # plot_field(y, z, e, b)
     
@@ -142,7 +146,10 @@ def output(t, final_t):
     print("alpha = {1:.4g}; cutoff = {2:.3g} eV".format(*pl))
 
     pylab.plot(am[flt], fitpl.applypl(pl, am[flt]), c=color, alpha=0.3, lw=3.0)
-    
+    fdist.write("{0:g} {1:.4g} {2:.3g} {3:g}\n"\
+                    .format(t, pl[1], pl[2], 
+                            grrr.particle_weight() * grrr.particle_count.value))
+    fdist.flush()
 
     savetxt('histogram.dat', c_[am[flt], h[flt], h[flt] / am[flt]])
 

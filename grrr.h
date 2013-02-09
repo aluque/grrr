@@ -71,7 +71,7 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define BETHE_PREFACTOR (2 * PI * AIR_DENSITY * AIR_Z * RE2 * MC2)
 
 /* The prefactor in the Coulomg scattering formula. */
-#define COULOMB_PREFACTOR (0.25 * AIR_DENSITY * (AIR_Z * RE2) * (AIR_Z * RE2))
+#define COULOMB_PREFACTOR (0.25 * AIR_DENSITY * (AIR_Z * AIR_Z * RE2))
 #define BSTRAHLUNG_A (1.2744e-28)
 #define BSTRAHLUNG_B (-1.0027e-27 * MEV)
 
@@ -100,8 +100,8 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define particle_printf_str "{r = [%g, %g, %g], p = [%g, %g, %g]}"
 #define particle_printf_args(G_) (G_)->r[X], (G_)->r[Y], (G_)->r[Z], \
     (G_)->p[X], (G_)->p[Y], (G_)->p[Z]
-
-
+#define vector_printf_str "{%g, %g, %g}"
+#define vector_printf_args(G_) (G_)[X], (G_)[Y], (G_)[Z]
 
 
 /* Function declarations. */

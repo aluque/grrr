@@ -10,42 +10,35 @@ M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
 M2C4 = MC2**2
 
-EB =  -30 * co.kilo / co.centi
+#EB =  -5 * co.kilo / co.centi
 B0 =  0 * co.micro
 E0 =   0 * co.kilo / co.centi
-L  =  100
 
-lt = []
-lz = []
-ln = []
+lt, lz, ln = [], [], []
 
 def main():
-    grrr.set_parameter('L' , L)
     grrr.set_parameter('B0', B0)
     grrr.set_parameter('E0', E0)
-    grrr.set_parameter('EB',  EB)
     grrr.set_emfield_func('const')
 
-    run(init_hooks=[init],
-        inner_hooks=[track],
-        finish_hooks=[])
+    EB = -linspace(4, 25, 16) * co.kilo / co.centi
+    L = empty_like(EB)
 
-    t, z, n = (array(x) for x in (lt, lz, ln))
+    for i, iEB in enumerate(EB):
+        grrr.set_parameter('EB',  iEB) 
+        run(init_hooks=[init],
+            inner_hooks=[track],
+            finish_hooks=[])
 
-    a, b = simple_regression(z, log(n))
-    print("L = {} m".format(1 / a))
-    savetxt("avalanche.dat", c_[t, z, n])
+        t, z, n = (array(x) for x in (lt, lz, ln))
 
-    pylab.figure('growth')
-    pylab.plot(z, n, lw=2.0, c='k')
+        a, b = simple_regression(z, log(n))
+        L[i] = 1 / a
+        print("L = {} m".format(1 / a))
 
-    pylab.figure('energy')
-    z = linspace(0, co.c * t[-1], 500)
-    
-    pylab.plot(z, co.elementary_charge * abs(EB) * z / co.eV, lw=2.0)
-
+    savetxt("avalanche_lengths.dat", c_[-EB / (co.kilo / co.centi), L]) 
+    pylab.plot(-EB / (co.kilo / co.centi), L, 'o')
     pylab.show()
-
 
 def simple_regression(xi, yi):
     A = ones((len(yi), 2), dtype=float)
@@ -55,8 +48,11 @@ def simple_regression(xi, yi):
     return r[0][0], r[0][1]
 
 def init():
+    global ln, lz, lt
+
+    lt, lz, ln = [], [], []
     grrr.list_clear()
-    init_list(0, 0, 100 * co.kilo * co.eV, 10)
+    init_list(0, 0, 1000 * co.kilo * co.eV, 10)
 
 
 def track(t, final_t):
