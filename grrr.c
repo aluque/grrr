@@ -29,6 +29,7 @@ static double coulomb_differential(double gamma2, double beta2, double p2,
 void emfield_static (double t, double *r, double *e, double *b);
 void emfield_wave   (double t, double *r, double *e, double *b);
 void emfield_const  (double t, double *r, double *e, double *b);
+void emfield_pulse  (double t, double *r, double *e, double *b);
 void emfield_interf (double t, double *r, double *e, double *b);
 void emfield_dipole (double t, double *r, double *e, double *b);
 void emfield_eval   (double t, double *r, double *e, double *b);
@@ -49,6 +50,7 @@ const char *invok_name = "grrr";
 
 /* These are parameters.  Later they have to be set at run-time. */
 double E0 = 7.0e5;
+double U0 = 0.0;
 double THETA = PI / 4;
 double EB = 0.0;
 double EBWIDTH = 0.0;
@@ -191,6 +193,19 @@ emfield_const(double t, double *r, double *e, double *b)
   b[X] = B0;
   b[Y] = 0.0;
   b[Z] = 0.0;
+}
+
+
+void
+emfield_pulse(double t, double *r, double *e, double *b)
+{
+  e[X] = 0.0;
+  e[Y] = 0.0; 
+  b[X] = 0.0;
+  b[Y] = 0.0;
+  b[Z] = 0.0;
+
+  e[Z] =  (r[Z] - U0 * t > L || r[Z] - U0 * t < 0)? 0.0: E0;
 }
 
 void

@@ -18,8 +18,11 @@ Stats = namedtuple('Stats', ['max_energy', 'avg_energy'])
 
 EB =  -0 * co.kilo / co.centi
 B0 =  20 * co.micro
-E0 =   10 * co.kilo / co.centi
-L  =  5
+E0 =  -20 * co.kilo / co.centi
+L  =  1000
+BETA = 1 - 0.001182
+U0  =  BETA * co.c
+THETA = pi / 16
 
 fdist = open("dist.dat", "w")
 
@@ -27,14 +30,14 @@ def main():
     grrr.set_parameter('L' , L)
     grrr.set_parameter('B0', B0)
     grrr.set_parameter('E0', E0)
+    grrr.set_parameter('U0', U0)
     grrr.set_parameter('EB',  EB)
-    grrr.set_parameter('THETA' , pi / 8)
-    #grrr.set_parameter('THETA' , 0.0)
+    grrr.set_parameter('THETA' , THETA)
     grrr.set_parameter('EBWIDTH', 4)
-    grrr.set_emfield_func('wave')
+    grrr.set_emfield_func('pulse')
 
     grrr.list_clear()
-    init_list(0, 50, 10000 * co.kilo * co.eV, 1000)
+    init_list(0, 10, 10000 * co.kilo * co.eV, 1000)
 
     run(init_hooks=[init_output],
         inner_hooks=[output],
@@ -48,7 +51,7 @@ def emfunc_const(t, r, e, b):
 
 def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
     dt = 0.0025 * co.nano
-    final_t = 500 * co.nano
+    final_t = 5000 * co.nano
     output_dt = 20 * co.nano
     output_n = int(output_dt / dt)
     max_particles = 2000
@@ -104,8 +107,8 @@ def init_list(zmin, zmax, emax, n):
 
 def init_output():
     print("Initializing output...")
-    y = linspace(-5 * L, 5 * L, 200)
-    z = linspace(-100, 50, 350)
+    y = linspace(-5 * L, 5 * L, 400)
+    z = linspace(-300, 50, 700)
     e, b = evaluate_fields(0, y, z)
 
     pylab.figure('trajectories')
@@ -124,7 +127,8 @@ def output(t, final_t):
     p = grrr.particles_p()
     r = grrr.particles_r()
     eng = grrr.particles_energy(p[p[:, 2] > 0])
-    u = co.c / cos(grrr.get_parameter('THETA'))
+    #u = co.c / cos(grrr.get_parameter('THETA'))
+    u = grrr.get_parameter('U0')
 
     color = cm.jet(t / final_t)
 
