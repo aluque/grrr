@@ -53,6 +53,8 @@ grrr.list_dump.argtypes = [c_char_p]
 grrr.list_clear.argtypes = []
 grrr.emfield_eval.argtypes = [c_double, c_vector3, c_vector3, c_vector3]
 grrr.emfield_eval.restype = None
+grrr.set_emfield_front.argtypes = [c_double, c_int, POINTER(c_double)]
+grrr.set_emfield_front.restype = None
 
 # grrr.electromagnetic_interf_field.argtypes = [c_double, c_vector3, 
 #                                               c_vector3, c_vector3]
@@ -72,6 +74,7 @@ list_dump = grrr.list_dump
 list_clear = grrr.list_clear
 total_fd = grrr.total_fd
 emfield_eval = grrr.emfield_eval
+set_emfield_front = grrr.set_emfield_front
 
 # Exported variables describing the particle list
 particle_head = POINTER(PARTICLE).in_dll(grrr, 'particle_head')
@@ -168,3 +171,25 @@ def particles_energy(p=None):
         p = particles_p()
 
     return sqrt(co.c**2 * sum(p**2, axis=1) + M2C4) - MC2
+
+
+def set_front(xi, efield):
+    """ Sets the front shape for emfield_front from xi and the electric field.
+    """
+
+    if (xi[0] + xi[-1] > 1e-4):
+        raise ValueError("xi must go from -L / 2 to L / 2")
+
+    n = len(xi)
+
+    if (len(efield) != n):
+        raise ValueError("efield and xi must have the same length")
+
+    L = xi[-1] - xi[0]
+
+    c_ndouble = c_double * n
+    c_front = c_ndouble()
+    for i, ef in enumerate(efield):
+        c_front[i] = ef
+
+    set_emfield_front(L, n - 1, c_front)

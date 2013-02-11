@@ -33,6 +33,9 @@ void emfield_pulse  (double t, double *r, double *e, double *b);
 void emfield_interf (double t, double *r, double *e, double *b);
 void emfield_dipole (double t, double *r, double *e, double *b);
 void emfield_eval   (double t, double *r, double *e, double *b);
+void emfield_front(double t, double *r, double *e, double *b);
+
+void set_emfield_front(double l, int ninterp, double *values);
 
 
 /* We will keep a global pointer to the beginning of the particle list
@@ -58,6 +61,8 @@ double B0 = 20e-6;
 double KTH = 0.005 * MEV;
 double GAMMATH;
 double L = 3.0;
+int NINTERP = 0;
+double *INTERP_VALUES = NULL;
 
 /* The function that computes em fields at any time in any point. */
 emfield_func_t emfield_func = &emfield_static;
@@ -207,6 +212,60 @@ emfield_pulse(double t, double *r, double *e, double *b)
 
   e[Z] =  (r[Z] - U0 * t > L || r[Z] - U0 * t < 0)? 0.0: E0;
 }
+
+void
+emfield_front(double t, double *r, double *e, double *b)
+{
+  double xi, x, dx, e1, e2;
+  int n; 
+
+  e[X] = 0.0;
+  e[Y] = 0.0; 
+  b[X] = 0.0;
+  b[Y] = 0.0;
+  b[Z] = 0.0;
+  
+  xi = r[Z] - U0 * t;
+  if (xi <= -L / 2) {
+    e[Z] = INTERP_VALUES[0];
+    return;
+  }
+
+  if (xi >= L / 2) {
+    e[Z] = INTERP_VALUES[NINTERP];
+    return;
+  }
+
+  x = NINTERP * (xi + L / 2) / L;
+  n = (int) floor(x);
+  dx = x - n;
+
+  e1 = INTERP_VALUES[n];
+  e2 = INTERP_VALUES[n + 1];
+
+  e[Z] = e1 + dx * (e2 - e1);
+}
+
+void 
+set_emfield_front(double l, int ninterp, double *values)
+/* Sets the shape of the front that will be interpolated from in
+   emfield_front.
+   * l is the width of the front
+   * ninterp is the number of interpolating segments from -l/2 to l/2.
+   * values is an array with at least ninterp + 1 values. */
+{
+  int i;
+
+  L = l;
+  NINTERP = ninterp;
+  if (INTERP_VALUES != NULL) {
+    free(INTERP_VALUES);
+  }
+
+  INTERP_VALUES = xmalloc((ninterp + 1) * sizeof(double));
+  memcpy(INTERP_VALUES, values, sizeof(double) * (ninterp + 1));
+}
+
 
 void
 emfield_interf(double t, double *r, double *e, double *b)

@@ -18,7 +18,7 @@ Stats = namedtuple('Stats', ['max_energy', 'avg_energy'])
 
 EB =  -0 * co.kilo / co.centi
 B0 =  20 * co.micro
-E0 =  -20 * co.kilo / co.centi
+E0 =  -10 * co.kilo / co.centi
 L  =  1000
 BETA = 1 - 0.001182
 U0  =  BETA * co.c
@@ -49,14 +49,14 @@ def emfunc_const(t, r, e, b):
     b[0], b[1], b[2] = B0, 0.0, 0.0;
     
 
-def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
+def run(start_t=0, init_hooks=[], inner_hooks=[], finish_hooks=[]):
     dt = 0.0025 * co.nano
-    final_t = 5000 * co.nano
+    final_t = start_t + 100 * co.nano
     output_dt = 20 * co.nano
     output_n = int(output_dt / dt)
-    max_particles = 2000
+    max_particles = 4000
 
-    t = 0
+    t = start_t
     purge_factor = 0.5
 
     for f in init_hooks:
@@ -75,6 +75,8 @@ def run(init_hooks=[], inner_hooks=[], finish_hooks=[]):
 
     for f in finish_hooks:
         f()
+
+    return t
 
 
 def stats():
@@ -160,6 +162,21 @@ def output(t, final_t):
     pylab.xlabel("$E$ [eV]")
     pylab.ylabel("f(E) [1/eV]")
     pylab.loglog()
+
+    pylab.figure('front')
+    zp = r[:, 2] - u * t
+    bins = linspace(amin(zp), amax(zp), 100)
+    h, a = histogram(zp, bins=bins, density=True)
+    am = 0.5 * (a[1:] + a[:-1])
+    flt = h > 0
+    pylab.plot(h[flt], am[flt], lw=1.5, c=color)
+
+    pylab.figure('diffusion')
+    bins = linspace(amin(r[:, 1]), amax(r[:, 1]), 100)
+    h, a = histogram(r[:, 1], bins=bins, density=True)
+    am = 0.5 * (a[1:] + a[:-1])
+    flt = h > 0
+    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
 
     pylab.figure('momentum')
     pt = sqrt(p[:, 0]**2 + p[:, 1]**2)
