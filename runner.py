@@ -77,12 +77,14 @@ class Runner(object):
         return grrr.particle_count.value
 
         
-    list_clear = grrr.list_clear
-    particles_p = grrr.particles_p
-    particles_r = grrr.particles_r
-    particles_energy = grrr.particles_energy
+    list_clear       = staticmethod(grrr.list_clear)
+    particles_p      = staticmethod(grrr.particles_p)
+    particles_r      = staticmethod(grrr.particles_r)
+    particles_energy = staticmethod(grrr.particles_energy)
+    particle_weight  = staticmethod(grrr.particle_weight)
+    set_front        = staticmethod(grrr.set_front)
+    charge_density   = staticmethod(grrr.charge_density)
 
-    
     def init_list(self, zmin, zmax, emax, n):
         """ Inits a list with n particles randomly located from -zmin to zmin
         and top energy emax. """
@@ -99,8 +101,10 @@ class Runner(object):
 
     
     def __call__(self, duration):
+        """ Runs the simulation for a specified time 'duration'.
+        """
         for f in init_hooks:
-            f()
+            f(self)
 
         self.init_time = self.TIME
         self.end_time = self.init_time + duration
@@ -110,12 +114,25 @@ class Runner(object):
                                           self.output_n, 
                                           self.max_particles,
                                           self.purge_factor)
+            self._prepare_data()
             for f in inner_hooks:
-                f(t, final_t)
+                f(self)
 
         for f in finish_hooks:
-            f()
+            f(self)
+
         
+    def _prepare_data(self):
+        """ Prepares the data for the inner hooks, which usually
+        are plotting functions that need r, p, eng etc. """
+        self.r = self.particles_r()
+        self.p = self.particles_p()
+        self.eng = particles_energy(self.p)
+        self.xi = self.p[:, 2] - self.U0 * self.TIME
+        self.tfraction = ((self.TIME - self.init_time) 
+                          / self.end_time - self.init_time)
+
+        self.zcells, self.charge = self.charge_density()
 
     def print_status(self):
         print("[{0:.2f} ns]: {1:d} particles ({2:g} superparticles)"\
