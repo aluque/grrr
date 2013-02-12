@@ -114,7 +114,6 @@ class Runner(object):
                                           self.output_n, 
                                           self.max_particles,
                                           self.purge_factor)
-            self._prepare_data()
             for f in inner_hooks:
                 f(self)
 
@@ -122,7 +121,7 @@ class Runner(object):
             f(self)
 
         
-    def _prepare_data(self):
+    def prepare_data(self):
         """ Prepares the data for the inner hooks, which usually
         are plotting functions that need r, p, eng etc. """
         self.r = self.particles_r()
@@ -132,7 +131,7 @@ class Runner(object):
         self.tfraction = ((self.TIME - self.init_time) 
                           / self.end_time - self.init_time)
 
-        self.zcells, self.charge = self.charge_density()
+        self.zfcells, self.charge = self.charge_density(return_faces=True)
 
     def print_status(self):
         print("[{0:.2f} ns]: {1:d} particles ({2:g} superparticles)"\
