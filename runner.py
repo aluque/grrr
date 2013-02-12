@@ -1,5 +1,6 @@
 # This module provides a pythonic, high-level object class to run grrr
 # simulations.
+import logging
 
 from numpy import *
 import scipy.constants as co
@@ -8,6 +9,10 @@ import grrr
 M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
 M2C4 = MC2**2
+
+logging.basicConfig(format='[%(asctime)s] %(message)s', 
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    level=logging.DEBUG)
 
 class Singleton(type):
     def __init__(cls, name, bases, dict):
@@ -48,23 +53,22 @@ class Runner(object):
         # Here we use some reasonable default values
         self.dt = 0.0025 * co.nano
         self.output_dt = 20 * co.nano
-        self.output_n = int(self.output_dt / dt)
+        self.output_n = int(self.output_dt / self.dt)
         self.max_particles = 2500
+        self.purge_factor = 0.5
 
     def __getattr__(self, name):
         """ The parameters not included in an instance are directly
         passed to the global variables of libgrrr. """
         if name.isupper():
             return grrr.get_parameter(name)
-        else:
-            return object.__getattr__(name)
 
 
     def __setattr__(self, name, value):
         if name.isupper():
             grrr.set_parameter(name, value)
         else:
-            object.__setattr__(name, value)
+            object.__setattr__(self, name, value)
 
     
     @property
@@ -73,28 +77,36 @@ class Runner(object):
         return grrr.particle_count.value * grrr.particle_weight()
 
     @property
-    def nsuper(self)
+    def nsuper(self):
         return grrr.particle_count.value
 
-        
+
+    def set_front(self, xi, ez):
+        self.front_xi = xi
+        self.front_ez = ez
+        grrr.set_front(self.front_xi, self.front_ez)
+
+
+    set_emfield_func = staticmethod(grrr.set_emfield_func)
     list_clear       = staticmethod(grrr.list_clear)
     particles_p      = staticmethod(grrr.particles_p)
     particles_r      = staticmethod(grrr.particles_r)
     particles_energy = staticmethod(grrr.particles_energy)
     particle_weight  = staticmethod(grrr.particle_weight)
-    set_front        = staticmethod(grrr.set_front)
     charge_density   = staticmethod(grrr.charge_density)
+
 
     def init_list(self, zmin, zmax, emax, n):
         """ Inits a list with n particles randomly located from -zmin to zmin
         and top energy emax. """
-        U0 = MC2 + emax
+        logging.debug("Initializing particle list [n = {}]".format(n))
+        E0 = MC2 + emax
 
         z = random.uniform(zmin, zmax, size=n)
         q = random.uniform(0, 1, size=n)
 
         r = [array([0.0, 0.0, z0]) for z0 in z]
-        p = [array([0, 0, q0 * sqrt(self.U0**2 - M2C4) / co.c]) for q0 in q]
+        p = [array([0, 0, q0 * sqrt(E0**2 - M2C4) / co.c]) for q0 in q]
 
         for r0, p0 in zip(r, p):
             grrr.create_particle(grrr.ELECTRON, r0, p0)
@@ -103,38 +115,44 @@ class Runner(object):
     def __call__(self, duration):
         """ Runs the simulation for a specified time 'duration'.
         """
-        for f in init_hooks:
+        logging.debug("Simulating {:g} ns".format(duration / co.nano))
+        for f in self.init_hooks:
             f(self)
 
         self.init_time = self.TIME
-        self.end_time = self.init_time + duration
+        self.end_time  = self.init_time + duration
 
         while (self.TIME <= self.end_time):
             grrr.list_step_n_with_purging(self.dt, 
                                           self.output_n, 
                                           self.max_particles,
                                           self.purge_factor)
-            for f in inner_hooks:
+            for f in self.inner_hooks:
                 f(self)
 
-        for f in finish_hooks:
+        for f in self.finish_hooks:
             f(self)
 
         
-    def prepare_data(self):
+    def prepare_data(self, tfraction=None):
         """ Prepares the data for the inner hooks, which usually
         are plotting functions that need r, p, eng etc. """
         self.r = self.particles_r()
         self.p = self.particles_p()
-        self.eng = particles_energy(self.p)
-        self.xi = self.p[:, 2] - self.U0 * self.TIME
-        self.tfraction = ((self.TIME - self.init_time) 
-                          / self.end_time - self.init_time)
-
+        self.eng = self.particles_energy(self.p)
+        self.xi = self.r[:, 2] - self.U0 * self.TIME
         self.zfcells, self.charge = self.charge_density(return_faces=True)
+        
+        if tfraction is None:
+            tfraction = ((self.TIME - self.init_time) 
+                         / self.end_time - self.init_time)
 
-    def print_status(self):
-        print("[{0:.2f} ns]: {1:d} particles ({2:g} superparticles)"\
-                  .format(self.TIME / co.nano, 
-                          self.nparticles,
-                          self.nsuper))
+        self.tfraction = tfraction
+
+
+    @staticmethod
+    def print_status(sim):
+        logging.info("[{0:.2f} ns]: {1:g} particles ({2:d} superparticles)"\
+                         .format(sim.TIME / co.nano, 
+                                 sim.nparticles,
+                                 sim.nsuper))

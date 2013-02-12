@@ -1,17 +1,38 @@
 """ Routines to plot the simulation status. """
 
+import logging
+
 from numpy import *
 import scipy.constants as co
 import pylab
 from matplotlib import cm
 
+import fitpl
+
+numpy_histogram = histogram
+logging.basicConfig(format='[%(asctime)s] %(message)s', 
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    level=logging.DEBUG)
+
+FIGURE_SET = set()
+
 def figure(func):
     def _f(*args, **kwargs):
         pylab.figure(func.func_name)
+        FIGURE_SET.add(func.func_name)
+        logging.debug("Updating figure '{}'".format(func.func_name))
         func(*args, **kwargs)
 
     _f.__doc__ = func.__doc__
     return _f
+
+def save_all():
+    for fig in FIGURE_SET:
+        pylab.figure(fig)
+        fname = '{}.pdf'.format(fig)
+        logging.info("Saving figure '{}' into {}".format(fig, fname))
+        pylab.savefig(fname)
+
 
 @figure
 def phases(sim, tfraction=None):
@@ -33,7 +54,7 @@ def histogram(sim, tfraction=None):
 
     color = cm.jet(tfraction)
     bins = logspace(5.5, 9, 100)
-    h, a = histogram(sim.eng / co.eV, bins=bins, density=True)
+    h, a = numpy_histogram(sim.eng / co.eV, bins=bins, density=True)
     am = 0.5 * (a[1:] + a[:-1])
     flt = h > 0
     pylab.plot(am[flt], h[flt], 'o', mew=0, ms=4, c=color)
@@ -41,7 +62,7 @@ def histogram(sim, tfraction=None):
     pl, _ = fitpl.fitpl(am[flt], h[flt], p0=array([1e-6, -1.0, 7.5e6 * co.eV]))
 
     pylab.plot(am[flt], fitpl.applypl(pl, am[flt]), c=color, alpha=0.3, lw=3.0)
-    print("alpha = {1:.4g}; cutoff = {2:.3g} eV".format(*pl))
+    logging.info("alpha = {1:.4g}; cutoff = {2:.3g} eV".format(*pl))
 
     pylab.xlabel("$E$ [eV]")
     pylab.ylabel("f(E) [1/eV]")
@@ -54,9 +75,28 @@ def front(sim, tfraction=None):
         tfraction = sim.tfraction
 
     color = cm.jet(tfraction)
-    bins = linspace(amin(zp), amax(zp), 100)
-    h, a = histogram(sim.xi, bins=bins, density=True)
-    am = 0.5 * (a[1:] + a[:-1])
-    flt = h > 0
-    pylab.plot(h[flt], am[flt], lw=1.5, c=color)
+    bins = linspace(amin(sim.xi), amax(sim.xi), 100)
+    h, a = numpy_histogram(sim.xi, bins=bins, density=True)
+    h *= sim.nparticles
 
+    am = 0.5 * (a[1:] + a[:-1])
+
+    flt = h > 0
+    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
+
+    pylab.xlabel("$z - ut$ [m]")
+    pylab.ylabel("$\sigma$ [1/m]")
+
+
+@figure
+def field(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    pylab.plot(sim.front_xi, 
+               sim.front_ez / (co.kilo / co.centi), 
+               lw=1.5, c=color)
+    
+    pylab.xlabel("$z - ut$ [m]")
+    pylab.ylabel("$E_z$ [kV / cm]")

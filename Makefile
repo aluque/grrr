@@ -1,6 +1,6 @@
 OBJ = grrr.o misc.o
 
-CFLAGS    = -std=c99 -O3 -fPIC
+CFLAGS    = -std=c99 -g -fPIC
 DFLAGS    = -DCOMPILING_HOSTNAME=\"$(HOSTNAME)\"
 LIBS = -lm
 CC   = gcc

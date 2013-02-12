@@ -168,7 +168,7 @@ particle_append(particle_t *part, int track)
   if (particle_head == NULL) {
     particle_head = part;
   }
-
+  
   if (track) particle_track_charge(part, 1);
   particle_count++;
 }
@@ -272,6 +272,12 @@ emfield_front(double t, double *r, double *e, double *b)
   b[Z] = 0.0;
   
   xi = r[Z] - U0 * t;
+  if(!isfinite(xi)) {
+    fprintf(stderr, "%s: xi is NaN encountered in emfield_front.\n", 
+	    invok_name);
+    exit(-1);
+  }
+
   if (xi <= -L / 2) {
     e[Z] = INTERP_VALUES[0];
     return;
@@ -945,7 +951,6 @@ list_step(double dt)
   }  
 
   TIME += dt;
-
 }
 
 void
