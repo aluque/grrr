@@ -72,6 +72,12 @@ int NCELLS = __NCELLS;
 double charge[__NCELLS];
 double CELL_DZ = 0.1;
 
+/* We track_time inside the C module with this global.  Note that t is only
+ read or changed in the high-level functions list_step* (actually, only
+ in list_step(...), since the others call this one).  Thus you can use
+ lower-level functions without side-effects. */
+double TIME = 0;
+
 /* The function that computes em fields at any time in any point. */
 emfield_func_t emfield_func = &emfield_static;
 
@@ -85,6 +91,7 @@ grrr_init(void)
   for (i = 0; i < NCELLS; i++) {
     charge[i] = 0.0;
   }
+  TIME = 0;
 }
 
 
@@ -924,7 +931,7 @@ timestep(particle_t *part, double t, double dt)
 
 
 void
-list_step(double t, double dt)
+list_step(double dt)
 /* Applies a time-step over the complete particle list. In the steps, some
    particles may dissapear and others might be newly minted. */
 {
@@ -934,40 +941,37 @@ list_step(double t, double dt)
 
   part = particle_head;
   while (part) {
-    part = timestep(part, t, dt);
+    part = timestep(part, TIME, dt);
   }  
+
+  TIME += dt;
+
 }
 
-double
-list_step_n(double t, double dt, int n)
+void
+list_step_n(double dt, int n)
 /* Performs n time-steps over the full list. Returns the final time. */
 {
   int i;
 
   for(i = 0; i < n; i++) {
-    list_step(t, dt);
-    t += dt;
+    list_step(dt);
   }
-
-  return t;
 }
 
-double
-list_step_n_with_purging(double t, double dt, int n, 
+void
+list_step_n_with_purging(double dt, int n, 
 			 int max_particles, double fraction)
 /* Performs n time-steps over the full list. Returns the final time. */
 {
   int i;
 
   for(i = 0; i < n; i++) {
-    list_step(t, dt);
+    list_step(dt);
     if(particle_count > max_particles) {
       list_purge(fraction);
     }
-    t += dt;
   }
-
-  return t;
 }
 
 

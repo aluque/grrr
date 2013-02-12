@@ -43,10 +43,10 @@ grrr.particle_init.argtypes = [c_int]
 grrr.particle_init.restype = POINTER(PARTICLE)
 grrr.particle_delete.argtypes = [POINTER(PARTICLE), c_int]
 grrr.particle_append.argtypes = [POINTER(PARTICLE), c_int]
-grrr.list_step.argtypes = [c_double, c_double]
-grrr.list_step_n.argtypes = [c_double, c_double, c_int]
+grrr.list_step.argtypes = [c_double]
+grrr.list_step_n.argtypes = [c_double, c_int]
 grrr.list_step_n.restype = c_double
-grrr.list_step_n_with_purging.argtypes = [c_double, c_double, c_int, 
+grrr.list_step_n_with_purging.argtypes = [c_double, c_int, 
                                           c_int, c_double]
 grrr.list_step_n_with_purging.restype = c_double
 grrr.list_purge.argtypes = [c_double]
