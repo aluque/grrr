@@ -50,10 +50,10 @@ def main():
 
         growth, b = simple_regression(counter.t[-n:], log(counter.n[-n:]))
         print("growth rate = {:g}/ns".format(growth * co.nano))
-        pylab.figure('growth')
-        pylab.plot(counter.t[-n:], counter.n[-n:], 'o')
-        pylab.plot(counter.t[-n:], exp(growth * counter.t[-n:] + b), lw=1.8)
-        pylab.show()
+        # pylab.figure('growth')
+        # pylab.plot(counter.t[-n:], counter.n[-n:], 'o')
+        # pylab.plot(counter.t[-n:], exp(growth * counter.t[-n:] + b), lw=1.8)
+        # pylab.show()
 
         update_front(t, (t - oldt) * n, i, growth)
         output(t, (t - oldt) * n)
