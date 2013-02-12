@@ -35,7 +35,7 @@ def main():
     init_list(0, 10, 10000 * co.kilo * co.eV, 1000)
     init_front()
     t = 0
-    n = 10
+    n = 50
     init_output()
     grrr.particle_weight(1.0)
 
@@ -50,10 +50,10 @@ def main():
 
         growth, b = simple_regression(counter.t[-n:], log(counter.n[-n:]))
         print("growth rate = {:g}/ns".format(growth * co.nano))
-        pylab.figure('growth')
-        pylab.plot(counter.t[-n:], counter.n[-n:], 'o')
-        pylab.plot(counter.t[-n:], exp(growth * counter.t[-n:] + b), lw=1.8)
-        pylab.show()
+        # pylab.figure('growth')
+        # pylab.plot(counter.t[-n:], counter.n[-n:], 'o')
+        # pylab.plot(counter.t[-n:], exp(growth * counter.t[-n:] + b), lw=1.8)
+        # pylab.show()
 
         update_front(t, (t - oldt) * n, i, growth)
         output(t, (t - oldt) * n)
@@ -111,7 +111,7 @@ def update_front(t, final_t, i, growth):
 
     cumh = cumsum(npos - h)
 
-    alpha = 1.0 * co.nano
+    alpha = 20.0 * co.nano
     E0 = E0 * (1 - alpha * growth)
     efield = EB + E0 * r_[0, cumh] / cumh[-1]
     print("E0 = {:g}".format(E0))
