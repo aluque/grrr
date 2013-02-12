@@ -24,6 +24,9 @@ typedef struct particle_t {
 /* Signature for the functions that calculate em-fields. */
 typedef void (*emfield_func_t)(double, double *, double *, double *);
 
+#define TRUE  1
+#define FALSE 0
+
 #define PI 3.141592653589793
 
 /* Electron mass. */
@@ -108,14 +111,14 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 /* grrr.c */
 void set_emfield_callback(emfield_func_t ef);
 particle_t *particle_init(int ptype);
-void particle_delete(particle_t *part);
-void particle_append(particle_t *part);
+void particle_delete(particle_t *part, int track);
+void particle_append(particle_t *part, int track);
 void list_clear(void);
 
 double total_fd(double K);
 int drpdt(particle_t *part, double t, double *r, const double *p, 
 	  double *dr, double *dp, double h);
-int rk4(particle_t *part, double t, double dt);
+int rk4(particle_t *part, double t, double dt, int update);
 int ionizing_collision(particle_t *part, double dt, double *K1, double *K2);
 int elastic_collision(particle_t *part, double dt, double *theta);
 void ionizing_momenta(const double *p, double K1, double K2, 
@@ -128,6 +131,7 @@ double list_step_n_with_purging(double t, double dt, int n,
 				int max_particles, double fraction);
 void list_purge(double fraction);
 void list_dump(char *fname);
+void count_collisions(int trials, double t, double dt, double *values);
 
 /* misc.c */
 void *xmalloc (size_t size);

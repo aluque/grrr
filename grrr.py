@@ -12,6 +12,7 @@ M2C4 = MC2**2
 
 # The library object
 grrr = cdll.LoadLibrary("libgrrr.so")
+grrr.grrr_init()
 
 # The partcle types
 ELECTRON, PROTON, PHOTON = 0, 1, 2
@@ -40,8 +41,8 @@ PARTICLE._fields_ = [('ptype', c_int),
 # Definition of the argument types to the exported functions
 grrr.particle_init.argtypes = [c_int]
 grrr.particle_init.restype = POINTER(PARTICLE)
-grrr.particle_delete.argtypes = [POINTER(PARTICLE)]
-grrr.particle_append.argtypes = [POINTER(PARTICLE)]
+grrr.particle_delete.argtypes = [POINTER(PARTICLE), c_int]
+grrr.particle_append.argtypes = [POINTER(PARTICLE), c_int]
 grrr.list_step.argtypes = [c_double, c_double]
 grrr.list_step_n.argtypes = [c_double, c_double, c_int]
 grrr.list_step_n.restype = c_double
@@ -55,6 +56,8 @@ grrr.emfield_eval.argtypes = [c_double, c_vector3, c_vector3, c_vector3]
 grrr.emfield_eval.restype = None
 grrr.set_emfield_front.argtypes = [c_double, c_int, POINTER(c_double)]
 grrr.set_emfield_front.restype = None
+grrr.count_collisions.argtypes = [c_int, c_double, c_double, POINTER(c_double)]
+grrr.count_collisions.restype = None
 
 # grrr.electromagnetic_interf_field.argtypes = [c_double, c_vector3, 
 #                                               c_vector3, c_vector3]
@@ -127,13 +130,13 @@ def particle_weight(value=None):
     return var.value
 
 
-def create_particle(ptype, r, p):
+def create_particle(ptype, r, p, track=True):
     """ Creates a particle of type ptype and momentum and position puts 
     it in the particle pool. """
     P = grrr.particle_init(ptype)
     P.contents.r[:] = r[:]
     P.contents.p[:] = p[:]
-    grrr.particle_append(P)
+    grrr.particle_append(P, track)
 
 
 def iter_particles():
@@ -193,3 +196,36 @@ def set_front(xi, efield):
         c_front[i] = ef
 
     set_emfield_front(L, n - 1, c_front)
+
+
+def count_collisions(trials, t, dt):
+    ninterp = c_int.in_dll(grrr, 'NINTERP').value
+
+    c_ndouble = c_double * ninterp
+    c_count = c_ndouble()
+    
+    grrr.count_collisions(trials, t, dt, c_count)
+    a = empty((ninterp,))
+    a[:] = c_count[:]
+
+    return a
+
+
+def charge_density(return_faces=False):
+    ncells = c_int.in_dll(grrr, 'NCELLS').value
+    cell_dz = c_double.in_dll(grrr, 'CELL_DZ').value
+
+    faces = linspace(0, ncells * cell_dz, ncells + 1)
+    centers = 0.5 * (faces[1:] + faces[:-1])
+
+    c_ndouble = c_double * ncells
+    c_charge =  c_ndouble.in_dll(grrr, 'charge')
+
+    charge = empty((ncells, ))
+    charge[:] = c_charge[:]
+
+    if return_faces:
+        return faces, charge
+    else:
+        return centers, charge
+

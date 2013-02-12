@@ -51,10 +51,10 @@ def emfunc_const(t, r, e, b):
 
 def run(start_t=0, init_hooks=[], inner_hooks=[], finish_hooks=[]):
     dt = 0.0025 * co.nano
-    final_t = start_t + 100 * co.nano
+    final_t = start_t + 200 * co.nano
     output_dt = 20 * co.nano
     output_n = int(output_dt / dt)
-    max_particles = 4000
+    max_particles = 2500
 
     t = start_t
     purge_factor = 0.5

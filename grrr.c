@@ -24,6 +24,7 @@ static double moller_differential(double gamma, double gamma2, double beta2,
 				  double Kp);
 static double coulomb_differential(double gamma2, double beta2, double p2, 
 				   double rtheta);
+static void particle_track_charge(particle_t *part, int change);
 
 /* Several pre-defined em fields. */
 void emfield_static (double t, double *r, double *e, double *b);
@@ -64,10 +65,28 @@ double L = 3.0;
 int NINTERP = 0;
 double *INTERP_VALUES = NULL;
 
+/* We will track the creation/destruction of particles to keep track
+   of the charge density. */
+#define __NCELLS 32768
+int NCELLS = __NCELLS;
+double charge[__NCELLS];
+double CELL_DZ = 0.1;
+
 /* The function that computes em fields at any time in any point. */
 emfield_func_t emfield_func = &emfield_static;
 
 void call_emfield(emfield_func_t ef);
+
+void 
+grrr_init(void)
+/* Initializations must come here. */
+{
+  int i;
+  for (i = 0; i < NCELLS; i++) {
+    charge[i] = 0.0;
+  }
+}
+
 
 void
 set_emfield_callback(emfield_func_t ef)
@@ -102,7 +121,7 @@ particle_init(int ptype)
 }
 
 void
-particle_delete(particle_t *part)
+particle_delete(particle_t *part, int track)
 /* Deletes a particle taking care of the prev/next links and freeing
    memory. */
 {
@@ -121,13 +140,14 @@ particle_delete(particle_t *part)
     particle_tail = part->prev;
   }
 
+  if (track) particle_track_charge(part, -1);
   free(part);
 
   particle_count--;
 }
 
 void
-particle_append(particle_t *part)
+particle_append(particle_t *part, int track)
 /* Appends a particle to the end of the list. */
 {
   part->next = NULL;
@@ -142,7 +162,26 @@ particle_append(particle_t *part)
     particle_head = part;
   }
 
+  if (track) particle_track_charge(part, 1);
   particle_count++;
+}
+
+static void
+particle_track_charge(particle_t *part, int change)
+/* Tracks the creation / destruction of a particle into the charge array.
+   change must be 1 when you create one particle, -1 when you destroy it. */
+{
+  int n;
+
+  n = (int) floor(part->r[Z] / CELL_DZ);
+  if (n < 0 || n >= NCELLS) {
+    fprintf (stderr, 
+	     "%s: Warning: particle at z=%g m outside tracking range.\n",
+	     invok_name, part->r[Z]);
+    return;
+  }
+
+  charge[n] += -particle_weight * part->charge * change;
 }
 
 void
@@ -150,7 +189,7 @@ list_clear(void)
 /* Deletes all particles from the list and releases their memory. */
 {
   while (particle_head != NULL) {
-    particle_delete(particle_head);
+    particle_delete(particle_head, FALSE);
   }
 }
 
@@ -266,6 +305,47 @@ set_emfield_front(double l, int ninterp, double *values)
   memcpy(INTERP_VALUES, values, sizeof(double) * (ninterp + 1));
 }
 
+
+void 
+count_collisions(int trials, double t, double dt, double *values)
+/* Counts the number of ionizing collisions minus thermalizations
+   per unit time in the front.
+   It counts the number of collisions during a time dt and
+   returns an average over n trials. */
+{
+  int i, n;
+  double xi, x, dn, theta;
+  particle_t *part;
+
+  memset(values, 0, NINTERP);
+  dn = 1.0 / trials / dt;
+
+  /* First the ionizing collisions. */
+  for (part = particle_head; part; part = part->next) {
+    int elastic;
+
+    xi = part->r[Z] - U0 * t;
+    if (xi < -L / 2 || xi > L / 2) continue;
+	
+    x = NINTERP * (xi + L / 2) / L;
+    n = (int) floor(x);
+
+    elastic = elastic_collision(part, dt, &theta);
+    if (elastic) {
+      elastic_momentum(part->p, theta, part->p);
+    }
+
+    if (rk4(part, t, dt, FALSE)) {
+      values[n] -= 1.0 / dt;
+    }
+
+    for (i = 0; i < trials; i++) {
+      if (ionizing_collision(part, dt, NULL, NULL)) {
+	values[n] += dn;
+      }
+    }
+  }
+}
 
 void
 emfield_interf(double t, double *r, double *e, double *b)
@@ -532,9 +612,12 @@ drpdt(particle_t *part, double t, double *r, const double *p,
 
 
 int
-rk4(particle_t *part, double t, double dt)
+rk4(particle_t *part, double t, double dt, int update)
 /* Updates the r and p of particle *part by a time dt using a 4th order 
-   Runge-Kutta solver. */
+   Runge-Kutta solver. 
+   If update is 0, just checks if the particle is being thermalized, without
+   updating momenta or position.
+*/
 {
   double dr1[3], dr2[3], dr3[3], dr4[3];
   double dp1[3], dp2[3], dp3[3], dp4[3];
@@ -569,6 +652,8 @@ rk4(particle_t *part, double t, double dt)
 
   thermal = drpdt(part, t + dt, r, p, dr4, dp4, dt);
   if(thermal) return 1;
+
+  if (!update) return 0;
 
   for (i = 0; i < 3; i++) {
     part->r[i] = part->r[i] + dr1[i] / 6 + dr2[i] / 3 + dr3[i] / 3 + dr4[i] / 6;
@@ -617,8 +702,8 @@ ionizing_collision(particle_t *part, double dt, double *K1, double *K2)
     return 0;
   } else {
     /* KABOOM! */
-    *K2 = K - Kp;
-    *K1 = Kp;
+    if (K2 != NULL) *K2 = K - Kp;
+    if (K1 != NULL) *K1 = Kp;
     return 1;
   }
 }
@@ -816,9 +901,9 @@ timestep(particle_t *part, double t, double dt)
     }
 
     newpart = part->next;
-    thermal = rk4(part, t, dt);
+    thermal = rk4(part, t, dt, TRUE);
     if(thermal) {
-      particle_delete(part);      
+      particle_delete(part, TRUE);      
     }
     return newpart;
 
@@ -832,7 +917,7 @@ timestep(particle_t *part, double t, double dt)
 
     ionizing_momenta(p, K1, K2, part->p, newpart->p);
 
-    particle_append(newpart);
+    particle_append(newpart, TRUE);
     return part;
   }
 }
@@ -849,7 +934,6 @@ list_step(double t, double dt)
 
   part = particle_head;
   while (part) {
-    // printf("%d " particle_printf_str "\n", i++, particle_printf_args(part));
     part = timestep(part, t, dt);
   }  
 }
@@ -898,7 +982,7 @@ list_purge(double fraction)
   while (part) {
     next = part->next;
     if (rand() * 1.0 / RAND_MAX > fraction) {
-      particle_delete(part);
+      particle_delete(part, FALSE);
     }
     part = next;
   }  
