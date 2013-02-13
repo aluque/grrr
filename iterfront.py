@@ -1,73 +1,85 @@
-from ctypes import *
+import logging
 
 from numpy import *
 import scipy.constants as co
 from scipy.interpolate import interp1d
 import grrr
-from main import init_list, run, init_output, output
-
+from runner import Runner
+import plotter
 import pylab
 from matplotlib import cm
 
-EB =  -0 * co.kilo / co.centi
-B0 =  20 * co.micro
-E0 =  -10 * co.kilo / co.centi
-L  =  30
-BETA = 1 - 0.001182 * 6
-U0  =  BETA * co.c
-THETA = 0.0
-NINTERP = 100
+logging.basicConfig(format='[%(asctime)s] %(message)s', 
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    level=logging.DEBUG)
+
+NINTERP = 400
+L = 100
 XI = linspace(-L / 2, L / 2, NINTERP + 1)
+EB =  -0 * co.kilo / co.centi
+E0 =  -10 * co.kilo / co.centi
+BETA = 1 - 0.001182 * 4
 
 
 def main():
-    grrr.set_parameter('L' , L)
-    grrr.set_parameter('B0', B0)
-    grrr.set_parameter('E0', E0)
-    grrr.set_parameter('U0', U0)
-    grrr.set_parameter('EB',  EB)
-    grrr.set_parameter('THETA' , THETA)
-    grrr.set_parameter('EBWIDTH', 4)
-    grrr.set_emfield_func('front')
+    runner = Runner()
 
+    runner.E0    = E0
+    runner.EB    = EB
+    runner.B0    =  20 * co.micro
+    runner.L     =  30
+    runner.U0    =  BETA * co.c
+    runner.THETA = 0.0
 
-    grrr.list_clear()
-    init_list(0, 10, 10000 * co.kilo * co.eV, 1000)
-    init_front()
-    t = 0
-    n = 50
-    init_output()
-    grrr.particle_weight(1.0)
+    runner.list_clear()
+    runner.init_list(0, 10, 10000 * co.kilo * co.eV, 2500)
+    runner.set_emfield_func('front')
 
-    counter = Counter()
+    init_front(runner)
+
+    counter = Counter(runner)
+
+    runner.inner_hooks.append(counter)
+    n = 10
+
+    runner.prepare_data(tfraction=0.0)
+    plotter.phases(runner)
+    plotter.front(runner)
+    plotter.field(runner)
+
+    runner.output_n = 1000
+    runner.max_particles = 5000
+
     for i in xrange(n):
-        oldt = t
+        runner(10 * co.nano)
 
-        t = run(start_t=t,
-                init_hooks=[],
-                inner_hooks=[counter],
-                finish_hooks=[])
+        growth, b = simple_regression(counter.t[-10:], log(counter.n[-10:]))
+        logging.info("growth rate = {:g} /ns".format(growth * co.nano))
 
-        growth, b = simple_regression(counter.t[-n:], log(counter.n[-n:]))
-        print("growth rate = {:g}/ns".format(growth * co.nano))
-        # pylab.figure('growth')
-        # pylab.plot(counter.t[-n:], counter.n[-n:], 'o')
-        # pylab.plot(counter.t[-n:], exp(growth * counter.t[-n:] + b), lw=1.8)
-        # pylab.show()
+        update_front(runner, growth)
+        tfraction = float(i + 1) / n
 
-        update_front(t, (t - oldt) * n, i, growth)
-        output(t, (t - oldt) * n)
+        runner.prepare_data(tfraction)
+        plotter.phases(runner)
+        plotter.histogram(runner)
+        plotter.front(runner)
+        plotter.field(runner)
+
+    plotter.save_all()
     pylab.show()
 
 
-def init_front():
+def init_front(runner):
     efield = where(XI >= 0, EB + E0, EB)
-    grrr.set_front(XI, efield)
+    runner.set_front(XI, efield)
+    
 
 class Counter(object):
-    def __init__(self):
+    def __init__(self, runner):
+        self.runner = runner
         self._t = []
         self._n = []
+        self.fp = open("counter.dat", "w")
 
     @property
     def t(self):
@@ -77,21 +89,19 @@ class Counter(object):
     def n(self):
         return array(self._n)
 
-    def __call__(self, t, final_t):
-        self._t.append(t)
-        self._n.append(grrr.particle_count.value * grrr.particle_weight())
+    def __call__(self, runner):
+        self._t.append(runner.TIME)
+        self._n.append(runner.nparticles)
+        self.fp.write("{} {}\n".format(runner.TIME, runner.nparticles))
+        self.fp.flush()
 
 
-def update_front(t, final_t, i, growth):
+def update_front(runner, growth):
     global E0, EB
+    runner.prepare_data()
 
-    u = grrr.get_parameter('U0')
-    r = grrr.particles_r()
-    color = cm.jet(t / final_t)
-
-    zp = r[:, 2] - u * t
-    h, a = histogram(zp, bins=XI, density=False)
-    h *= grrr.particle_weight()
+    h, a = histogram(runner.xi, bins=XI, density=True)
+    h *= runner.nparticles
 
     dt = 0.0025 * co.nano
     dxi = XI[1] - XI[0]
@@ -101,10 +111,12 @@ def update_front(t, final_t, i, growth):
     zf, nc = grrr.charge_density(return_faces=True)
 
     # We now count the charges to the left of a face
-    cumn = r_[0.0, cumsum(nc)]
+    cumn = r_[0.0, cumsum(runner.charge)]
     
     # And interpolate linearly into the cell boundaries of the front array
-    dn = interp1d(zf, cumn, fill_value=0, bounds_error=False)(XI + u * t)
+    ipolator = interp1d(runner.zfcells, cumn, 
+                  fill_value=0, bounds_error=False)
+    dn = ipolator(XI + runner.U0 * runner.TIME)
 
     # to obtain the particles inside each box of xi we now make differences
     npos = diff(dn)
@@ -114,10 +126,12 @@ def update_front(t, final_t, i, growth):
     alpha = 20.0 * co.nano
     E0 = E0 * (1 - alpha * growth)
     efield = EB + E0 * r_[0, cumh] / cumh[-1]
-    print("E0 = {:g}".format(E0))
+    logging.info("E0 = {:g} kV/cm".format(E0 / (co.kilo / co.centi)))
 
-    grrr.set_front(XI, efield)
+    runner.set_front(XI, efield)
 
+
+def foo():
     savetxt("front_%.3d.dat" % i, c_[XI, r_[0.0, h], efield])
     
     xim = 0.5 * (XI[1:] + XI[:-1])
@@ -136,8 +150,6 @@ def update_front(t, final_t, i, growth):
     # pylab.figure('collisions')
     # pylab.plot(xim, fi, lw=1.5, c=color)
 
-    pylab.figure('field')
-    pylab.plot(XI, efield, lw=1.5, c=color)
 
     pylab.figure('ion density')
     pylab.plot(xim, npos, lw=1.5, c=color)

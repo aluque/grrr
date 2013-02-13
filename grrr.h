@@ -11,9 +11,16 @@ typedef struct particle_t {
   /* The momentum and location. */
   double r[3], p[3];
   
+  /* The RK4 algorithm is much easier if we also store here the derivatives
+     of r and p. */
+  double dr[3], dp[3];
+
   /* The charge and mass is set as a multiple of the elementary charge
      and the electron mass. */
   int charge, mass;
+
+  /* We flag a particle as thermalized to ignore it and delete it later. */
+  int thermal;
 
   /* We store all the particles in a doubly-linked list. */
   struct particle_t *prev, *next;
@@ -114,20 +121,26 @@ particle_t *particle_init(int ptype);
 void particle_delete(particle_t *part, int track);
 void particle_append(particle_t *part, int track);
 void list_clear(void);
+void list_erase(particle_t *plist);
 
 double total_fd(double K);
 int drpdt(particle_t *part, double t, double *r, const double *p, 
 	  double *dr, double *dp, double h);
-int rk4(particle_t *part, double t, double dt, int update);
+void drpdt_all(particle_t *plist, double t, double dt);
+int rk4_single(particle_t *part, double t, double dt, int update);
+void rk4(double t, double dt);
+particle_t *rkstep(particle_t *plist0, particle_t *plist1, double rkfactor);
+void drop_thermal(void);
 int ionizing_collision(particle_t *part, double dt, double *K1, double *K2);
 int elastic_collision(particle_t *part, double dt, double *theta);
 void ionizing_momenta(const double *p, double K1, double K2, 
 		      double *p1, double *p2);
 void elastic_momentum(double *p, double theta, double *pnew);
 particle_t *timestep(particle_t *part, double t, double dt);
-void list_step(double t, double dt);
-double list_step_n(double t, double dt, int n);
-double list_step_n_with_purging(double t, double dt, int n, 
+void sync_list_step(double dt);
+void list_step(double dt);
+void list_step_n(double dt, int n);
+void list_step_n_with_purging(double dt, int n, 
 				int max_particles, double fraction);
 void list_purge(double fraction);
 void list_dump(char *fname);

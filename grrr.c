@@ -72,6 +72,12 @@ int NCELLS = __NCELLS;
 double charge[__NCELLS];
 double CELL_DZ = 0.1;
 
+/* We track_time inside the C module with this global.  Note that t is only
+ read or changed in the high-level functions list_step* (actually, only
+ in list_step(...), since the others call this one).  Thus you can use
+ lower-level functions without side-effects. */
+double TIME = 0;
+
 /* The function that computes em fields at any time in any point. */
 emfield_func_t emfield_func = &emfield_static;
 
@@ -85,6 +91,7 @@ grrr_init(void)
   for (i = 0; i < NCELLS; i++) {
     charge[i] = 0.0;
   }
+  TIME = 0;
 }
 
 
@@ -116,7 +123,8 @@ particle_init(int ptype)
   part->ptype = ptype;
   part->charge = particle_charge[ptype];
   part->mass = particle_mass[ptype];
-  
+  part->next = NULL;
+  part->thermal = FALSE;
   return part;
 }
 
@@ -161,7 +169,7 @@ particle_append(particle_t *part, int track)
   if (particle_head == NULL) {
     particle_head = part;
   }
-
+  
   if (track) particle_track_charge(part, 1);
   particle_count++;
 }
@@ -190,6 +198,18 @@ list_clear(void)
 {
   while (particle_head != NULL) {
     particle_delete(particle_head, FALSE);
+  }
+}
+
+void
+list_erase(particle_t *plist)
+/* Erases all particles in a list, but does not change the main list. */
+{
+  particle_t *part, *partnext;
+
+  for (part = plist; part; part = partnext) {
+    partnext = part->next;
+    free(part);
   }
 }
 
@@ -265,6 +285,12 @@ emfield_front(double t, double *r, double *e, double *b)
   b[Z] = 0.0;
   
   xi = r[Z] - U0 * t;
+  if(!isfinite(xi)) {
+    fprintf(stderr, "%s: xi is NaN encountered in emfield_front.\n", 
+	    invok_name);
+    exit(-1);
+  }
+
   if (xi <= -L / 2) {
     e[Z] = INTERP_VALUES[0];
     return;
@@ -335,7 +361,7 @@ count_collisions(int trials, double t, double dt, double *values)
       elastic_momentum(part->p, theta, part->p);
     }
 
-    if (rk4(part, t, dt, FALSE)) {
+    if (rk4_single(part, t, dt, FALSE)) {
       values[n] -= 1.0 / dt;
     }
 
@@ -610,9 +636,20 @@ drpdt(particle_t *part, double t, double *r, const double *p,
   return 0;
 }
 
+void
+drpdt_all(particle_t *plist, double t, double dt)
+/* Calculates dp and dr for all particles in plist */
+{
+  particle_t *part;
+  int thermal;
+  
+  for (part = plist; part; part = part->next) {
+    part->thermal = drpdt(part, t, part->r, part->p, part->dr, part->dp, dt);
+  }
+}
 
 int
-rk4(particle_t *part, double t, double dt, int update)
+rk4_single(particle_t *part, double t, double dt, int update)
 /* Updates the r and p of particle *part by a time dt using a 4th order 
    Runge-Kutta solver. 
    If update is 0, just checks if the particle is being thermalized, without
@@ -661,6 +698,103 @@ rk4(particle_t *part, double t, double dt, int update)
   }
 
   return 0;
+}
+
+void
+rk4(double t, double dt)
+/* Implements a full RK4 step of all the particles in the list. */
+{
+  particle_t *plist1, *plist2, *plist3;
+  particle_t *part1, *part2, *part3;
+  particle_t *part;
+  int i;
+
+  drpdt_all(particle_head, t, dt);
+  plist1 = rkstep(particle_head, particle_head, 0.5);
+
+  drpdt_all(plist1, t + 0.5 * dt, dt);
+  plist2 = rkstep(particle_head, plist1, 0.5);
+  
+  drpdt_all(plist2, t + 0.5 * dt, dt);
+  plist3 = rkstep(particle_head, plist2, 1.0);
+
+  drpdt_all(plist3, t + dt, dt);
+  
+  for(part = particle_head, part1 = plist1, part2 = plist2, part3 = plist3; 
+      part; 
+      part = part->next, 
+	part1 = part1->next, 
+	part2 = part2->next, 
+	part3 = part3->next) {
+
+    for (i = 0; i < 3; i++) {
+      part->r[i] = (part->r[i] + part->dr[i] / 6 + part1->dr[i] / 3 + 
+		    part2->dr[i] / 3 + part3->dr[i] / 6);
+
+      part->p[i] = (part->p[i] + part->dp[i] / 6 + part1->dp[i] / 3 + 
+		    part2->dp[i] / 3 + part3->dp[i] / 6);
+    }
+
+    part->thermal = (part->thermal || part1->thermal || part2->thermal ||
+		     part3->thermal);
+  }
+
+  list_erase(plist1);
+  list_erase(plist2);
+  list_erase(plist3);
+}
+
+
+
+particle_t *
+rkstep(particle_t *plist0, particle_t *plist1, double rkfactor)
+/* Performs a Runke-Kutta inner step.  It reads from plist0 and plist1
+   and creates a new particle list.  This new list is not doubly linked 
+   and does not touch particle_count, particle_head, etc.
+
+   For the new particles, we take position/momenta from plist0 and derivatives
+   from plist1; they can be the same.
+*/
+{
+  particle_t *part0, *part1, *newlist = NULL, *tail = NULL, *newpart;
+  int i;
+
+  for(part0 = plist0, part1 = plist1; part0; 
+      part0 = part0->next, part1 = part1->next) {
+    newpart = particle_init(part0->ptype);
+
+    for (i = 0; i < 3; i++) {
+      newpart->r[i] = part0->r[i] + rkfactor * part1->dr[i];
+      newpart->p[i] = part0->p[i] + rkfactor * part1->dp[i];
+    }
+
+    if (newlist == NULL) {
+      newlist = newpart;
+      tail = newpart;
+    } else {
+      if (tail != NULL) {
+	tail->next = newpart;
+	tail = newpart;
+      }
+    }
+  }
+
+  return newlist;
+}
+
+      
+void
+drop_thermal(void)
+/* Removes from the list all particles that have been thermalized. */
+{
+  particle_t *part, *newpart;
+
+  for (part = particle_head; part; part = newpart) {
+    newpart = part->next;
+    if (part->thermal) {
+      particle_delete(part, TRUE);
+    }
+  }
 }
 
 
@@ -901,7 +1035,7 @@ timestep(particle_t *part, double t, double dt)
     }
 
     newpart = part->next;
-    thermal = rk4(part, t, dt, TRUE);
+    thermal = rk4_single(part, t, dt, TRUE);
     if(thermal) {
       particle_delete(part, TRUE);      
     }
@@ -922,9 +1056,73 @@ timestep(particle_t *part, double t, double dt)
   }
 }
 
+void
+perform_ionizing_collision(particle_t *part, double dt)
+/* Checks if a particle undergoes an ionizing collision.  If it does, adds
+   the newly created particle to the particle list.  This new particle will
+   also be checked for ionizing collisions later. */
+{
+  int collides;
+  particle_t *newpart;
+  double K1, K2, p[3];
+
+  collides = ionizing_collision(part, dt, &K1, &K2);
+  if (!collides) return;
+
+  newpart = particle_init(part->ptype);
+  
+  memcpy(newpart->r, part->r, 3 * sizeof(double));
+  memcpy(p, part->p, 3 * sizeof(double));
+  
+  ionizing_momenta(p, K1, K2, part->p, newpart->p);
+  
+  particle_append(newpart, TRUE);
+}
+
 
 void
-list_step(double t, double dt)
+perform_elastic_collision(particle_t *part, double dt)
+/* Checks if the particle undergoes an elastic collision; if it does,
+   update it momentum vector. */
+{
+  int elastic;
+  double theta;
+  elastic = elastic_collision(part, dt, &theta);
+
+  if (elastic) {
+    elastic_momentum(part->p, theta, part->p);
+  }
+}
+
+
+
+void
+sync_list_step(double dt)
+/* Applies a synchronized time-step over the complete particle list. 
+   In the steps, some
+   particles may dissapear and others might be newly minted. */
+{
+  particle_t *part;
+
+  GAMMATH = 1 + KTH / MC2;
+
+  /* First let's check the collisions. */
+  for (part = particle_head; part; part = part->next) {
+    perform_ionizing_collision(part, dt);
+    perform_elastic_collision(part, dt);
+  }
+
+  /* Update r and p with a 4th order Runge-Kutta. */
+  rk4(TIME, dt);
+
+  /* Drop the thermalized particles. */
+  drop_thermal();
+
+  TIME += dt;
+}
+
+void
+list_step(double dt)
 /* Applies a time-step over the complete particle list. In the steps, some
    particles may dissapear and others might be newly minted. */
 {
@@ -934,40 +1132,36 @@ list_step(double t, double dt)
 
   part = particle_head;
   while (part) {
-    part = timestep(part, t, dt);
+    part = timestep(part, TIME, dt);
   }  
+
+  TIME += dt;
 }
 
-double
-list_step_n(double t, double dt, int n)
+void
+list_step_n(double dt, int n)
 /* Performs n time-steps over the full list. Returns the final time. */
 {
   int i;
 
   for(i = 0; i < n; i++) {
-    list_step(t, dt);
-    t += dt;
+    sync_list_step(dt);
   }
-
-  return t;
 }
 
-double
-list_step_n_with_purging(double t, double dt, int n, 
+void
+list_step_n_with_purging(double dt, int n, 
 			 int max_particles, double fraction)
 /* Performs n time-steps over the full list. Returns the final time. */
 {
   int i;
 
   for(i = 0; i < n; i++) {
-    list_step(t, dt);
+    list_step(dt);
     if(particle_count > max_particles) {
       list_purge(fraction);
     }
-    t += dt;
   }
-
-  return t;
 }
 
 

@@ -1,10 +1,15 @@
 # This is a thin python wrapper around libgrrr, which contains the
 # hard MC computations.  Everything is built around the ctypes 
 # module in the python stdlib.
+import logging
 
 from numpy import *
 from ctypes import *
 import scipy.constants as co
+
+logging.basicConfig(format='[%(asctime)s] %(message)s', 
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    level=logging.DEBUG)
 
 M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
@@ -13,6 +18,7 @@ M2C4 = MC2**2
 # The library object
 grrr = cdll.LoadLibrary("libgrrr.so")
 grrr.grrr_init()
+logging.debug('libgrrr.so loaded and initialized.')
 
 # The partcle types
 ELECTRON, PROTON, PHOTON = 0, 1, 2
@@ -33,8 +39,11 @@ class PARTICLE(Structure):
 PARTICLE._fields_ = [('ptype', c_int),
                      ('r', c_double *3),
                      ('p', c_double *3),
+                     ('dr', c_double *3),
+                     ('dp', c_double *3),
                      ('charge', c_int),
                      ('mass', c_int),
+                     ('thermal', c_int),
                      ('prev', POINTER(PARTICLE)),
                      ('next', POINTER(PARTICLE))]
 
@@ -43,10 +52,10 @@ grrr.particle_init.argtypes = [c_int]
 grrr.particle_init.restype = POINTER(PARTICLE)
 grrr.particle_delete.argtypes = [POINTER(PARTICLE), c_int]
 grrr.particle_append.argtypes = [POINTER(PARTICLE), c_int]
-grrr.list_step.argtypes = [c_double, c_double]
-grrr.list_step_n.argtypes = [c_double, c_double, c_int]
+grrr.list_step.argtypes = [c_double]
+grrr.list_step_n.argtypes = [c_double, c_int]
 grrr.list_step_n.restype = c_double
-grrr.list_step_n_with_purging.argtypes = [c_double, c_double, c_int, 
+grrr.list_step_n_with_purging.argtypes = [c_double, c_int, 
                                           c_int, c_double]
 grrr.list_step_n_with_purging.restype = c_double
 grrr.list_purge.argtypes = [c_double]
@@ -100,6 +109,7 @@ def set_parameter(name, value, ctype=c_double):
     """
     var = ctype.in_dll(grrr, name)
     var.value = value
+    logging.info("Setting parameter {} = {}".format(name, value))
 
 
 def get_parameter(name, ctype=c_double):
@@ -179,6 +189,8 @@ def particles_energy(p=None):
 def set_front(xi, efield):
     """ Sets the front shape for emfield_front from xi and the electric field.
     """
+
+    logging.debug("Setting a new field profile.")
 
     if (xi[0] + xi[-1] > 1e-4):
         raise ValueError("xi must go from -L / 2 to L / 2")
