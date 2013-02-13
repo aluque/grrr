@@ -94,6 +94,7 @@ class Runner(object):
     particles_energy = staticmethod(grrr.particles_energy)
     particle_weight  = staticmethod(grrr.particle_weight)
     charge_density   = staticmethod(grrr.charge_density)
+    selfcons_field   = staticmethod(grrr.selfcons_field)
 
 
     def init_list(self, zmin, zmax, emax, n):
@@ -142,7 +143,8 @@ class Runner(object):
         self.eng = self.particles_energy(self.p)
         self.xi = self.r[:, 2] - self.U0 * self.TIME
         self.zfcells, self.charge = self.charge_density(return_faces=True)
-        
+        self.zccells, self.ez = self.selfcons_field()
+
         if tfraction is None:
             tfraction = ((self.TIME - self.init_time) 
                          / self.end_time - self.init_time)

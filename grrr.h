@@ -67,6 +67,7 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define KEV (1e3 * EV)
 #define MEV (1e6 * EV)
 
+#define EPSILON_0 8.854187817620389e-12
 
 /* Atmospheric air density. */
 #define AIR_DENSITY 2.6867805e+25
@@ -120,6 +121,8 @@ void set_emfield_callback(emfield_func_t ef);
 particle_t *particle_init(int ptype);
 void particle_delete(particle_t *part, int track);
 void particle_append(particle_t *part, int track);
+void count_mobile(particle_t *plist);
+void solve_ez(void);
 void list_clear(void);
 void list_erase(particle_t *plist);
 

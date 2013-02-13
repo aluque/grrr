@@ -9,6 +9,8 @@ import plotter
 import pylab
 from matplotlib import cm
 
+from misc import Counter
+
 logging.basicConfig(format='[%(asctime)s] %(message)s', 
                     datefmt='%a, %d %b %Y %H:%M:%S',
                     level=logging.DEBUG)
@@ -73,28 +75,6 @@ def init_front(runner):
     efield = where(XI >= 0, EB + E0, EB)
     runner.set_front(XI, efield)
     
-
-class Counter(object):
-    def __init__(self, runner):
-        self.runner = runner
-        self._t = []
-        self._n = []
-        self.fp = open("counter.dat", "w")
-
-    @property
-    def t(self):
-        return array(self._t)
-
-    @property
-    def n(self):
-        return array(self._n)
-
-    def __call__(self, runner):
-        self._t.append(runner.TIME)
-        self._n.append(runner.nparticles)
-        self.fp.write("{} {}\n".format(runner.TIME, runner.nparticles))
-        self.fp.flush()
-
 
 def update_front(runner, growth):
     global E0, EB

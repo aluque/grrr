@@ -27,14 +27,15 @@ static double coulomb_differential(double gamma2, double beta2, double p2,
 static void particle_track_charge(particle_t *part, int change);
 
 /* Several pre-defined em fields. */
-void emfield_static (double t, double *r, double *e, double *b);
-void emfield_wave   (double t, double *r, double *e, double *b);
-void emfield_const  (double t, double *r, double *e, double *b);
-void emfield_pulse  (double t, double *r, double *e, double *b);
-void emfield_interf (double t, double *r, double *e, double *b);
-void emfield_dipole (double t, double *r, double *e, double *b);
-void emfield_eval   (double t, double *r, double *e, double *b);
-void emfield_front(double t, double *r, double *e, double *b);
+void emfield_static    (double t, double *r, double *e, double *b);
+void emfield_wave      (double t, double *r, double *e, double *b);
+void emfield_const     (double t, double *r, double *e, double *b);
+void emfield_pulse     (double t, double *r, double *e, double *b);
+void emfield_interf    (double t, double *r, double *e, double *b);
+void emfield_dipole    (double t, double *r, double *e, double *b);
+void emfield_eval      (double t, double *r, double *e, double *b);
+void emfield_front     (double t, double *r, double *e, double *b);
+void emfield_selfcons  (double t, double *r, double *e, double *b);
 
 void set_emfield_front(double l, int ninterp, double *values);
 
@@ -68,9 +69,21 @@ double *INTERP_VALUES = NULL;
 /* We will track the creation/destruction of particles to keep track
    of the charge density. */
 #define __NCELLS 32768
-int NCELLS = __NCELLS;
-double charge[__NCELLS];
-double CELL_DZ = 0.1;
+const int NCELLS = __NCELLS;
+const double CELL_DZ = 0.1;
+
+/* fixedcharge counts the number of "fixed" charge-carriers inside a cell.
+   That includes ions and thermalized electrons, which, for our purposes
+   are also considered immobile. */
+double fixedcharge[__NCELLS];
+
+/* mobilecharge counts the number of mobile charges inside each cell. */
+double mobilecharge[__NCELLS];
+
+/* And this contains the collective ez, calculated in ez_integrate.
+   Note that ez is evaluated in the cell boundaries and therefore
+   contains NCELLS+1 numbers. */
+double ez[__NCELLS + 1];
 
 /* We track_time inside the C module with this global.  Note that t is only
  read or changed in the high-level functions list_step* (actually, only
@@ -89,7 +102,7 @@ grrr_init(void)
 {
   int i;
   for (i = 0; i < NCELLS; i++) {
-    charge[i] = 0.0;
+    fixedcharge[i] = 0.0;
   }
   TIME = 0;
 }
@@ -189,7 +202,42 @@ particle_track_charge(particle_t *part, int change)
     return;
   }
 
-  charge[n] += -particle_weight * part->charge * change;
+  fixedcharge[n] += -particle_weight * part->charge * change;
+}
+
+void
+count_mobile(particle_t *plist)
+/* Counts the number of mobile particles inside each cells.  Updates
+   mobilecharge. */
+{
+  particle_t *part;
+  int n;
+
+  memset(mobilecharge, 0, NCELLS * sizeof(double));
+  
+  for (part = plist; part; part = part->next) {
+    n = (int) floor(part->r[Z] / CELL_DZ);
+    mobilecharge[n] += particle_weight * part->charge;
+  }
+}
+
+void
+solve_ez(void)
+/* Solves ez from fixedcharge and mobilecharge.  The boundary condition
+   here is always ez->EB for z->infinity.  If you want a different b.c.
+   you have to add a constant to ez.
+*/
+{
+  int i;
+  double field = EB;
+
+  for (i = 0; i < NCELLS + 1; i++) {
+    ez[NCELLS - i] = field;
+    if (NCELLS - 1 - i >= 0) {
+      field -= ((ELEMENTARY_CHARGE / EPSILON_0)
+		* (mobilecharge[NCELLS - 1 - i] + fixedcharge[NCELLS - 1 - i]));
+    }
+  }
 }
 
 void
@@ -311,6 +359,36 @@ emfield_front(double t, double *r, double *e, double *b)
   e[Z] = e1 + dx * (e2 - e1);
 }
 
+
+void
+emfield_selfcons(double t, double *r, double *e, double *b)
+{
+  double x, dx;
+  int n; 
+
+  e[X] = 0.0;
+  e[Y] = 0.0; 
+  b[X] = 0.0;
+  b[Y] = 0.0;
+  b[Z] = 0.0;
+  
+  if (r[Z] < 0) {
+    e[Z] = ez[0];
+    return;
+  }
+
+  if (r[Z] >= NCELLS * CELL_DZ) {
+    e[Z] = ez[NCELLS];
+    return;
+  }
+  x = r[Z] / CELL_DZ;
+  n = (int) floor(x);
+  dx = x - n;
+
+  e[Z] = ez[n] + dx * (ez[n + 1] - ez[n]);
+}
+
+
 void 
 set_emfield_front(double l, int ninterp, double *values)
 /* Sets the shape of the front that will be interpolated from in
@@ -343,7 +421,7 @@ count_collisions(int trials, double t, double dt, double *values)
   double xi, x, dn, theta;
   particle_t *part;
 
-  memset(values, 0, NINTERP);
+  memset(values, 0, NINTERP * sizeof(double));
   dn = 1.0 / trials / dt;
 
   /* First the ionizing collisions. */
@@ -642,7 +720,12 @@ drpdt_all(particle_t *plist, double t, double dt)
 {
   particle_t *part;
   int thermal;
-  
+
+  if (emfield_func == &emfield_selfcons) {
+    count_mobile(plist);
+    solve_ez();
+  }
+
   for (part = plist; part; part = part->next) {
     part->thermal = drpdt(part, t, part->r, part->p, part->dr, part->dp, dt);
   }
@@ -1157,7 +1240,7 @@ list_step_n_with_purging(double dt, int n,
   int i;
 
   for(i = 0; i < n; i++) {
-    list_step(dt);
+    sync_list_step(dt);
     if(particle_count > max_particles) {
       list_purge(fraction);
     }

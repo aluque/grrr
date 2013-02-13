@@ -100,3 +100,17 @@ def field(sim, tfraction=None):
     
     pylab.xlabel("$z - ut$ [m]")
     pylab.ylabel("$E_z$ [kV / cm]")
+
+
+@figure
+def selfcons_field(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    pylab.plot(sim.zfcells, 
+               sim.ez / (co.kilo / co.centi), 
+               lw=1.5, c=color)
+    
+    pylab.xlabel("$z - ut$ [m]")
+    pylab.ylabel("$E_z$ [kV / cm]")

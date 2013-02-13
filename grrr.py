@@ -231,7 +231,7 @@ def charge_density(return_faces=False):
     centers = 0.5 * (faces[1:] + faces[:-1])
 
     c_ndouble = c_double * ncells
-    c_charge =  c_ndouble.in_dll(grrr, 'charge')
+    c_charge =  c_ndouble.in_dll(grrr, 'fixedcharge')
 
     charge = empty((ncells, ))
     charge[:] = c_charge[:]
@@ -240,4 +240,23 @@ def charge_density(return_faces=False):
         return faces, charge
     else:
         return centers, charge
+
+
+def selfcons_field(return_faces=False):
+    ncells = c_int.in_dll(grrr, 'NCELLS').value
+    cell_dz = c_double.in_dll(grrr, 'CELL_DZ').value
+
+    faces = linspace(0, ncells * cell_dz, ncells + 1)
+    centers = 0.5 * (faces[1:] + faces[:-1])
+
+    c_ndouble = c_double * (ncells + 1)
+    c_ez =  c_ndouble.in_dll(grrr, 'ez')
+
+    ez = empty((ncells + 1, ))
+    ez[:] = c_ez[:]
+
+    if return_faces:
+        return faces, ez
+    else:
+        return centers, ez
 
