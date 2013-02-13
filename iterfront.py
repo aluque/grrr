@@ -13,8 +13,8 @@ logging.basicConfig(format='[%(asctime)s] %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
                     level=logging.DEBUG)
 
-NINTERP = 200
-L = 50
+NINTERP = 400
+L = 100
 XI = linspace(-L / 2, L / 2, NINTERP + 1)
 EB =  -0 * co.kilo / co.centi
 E0 =  -10 * co.kilo / co.centi
@@ -32,7 +32,7 @@ def main():
     runner.THETA = 0.0
 
     runner.list_clear()
-    runner.init_list(0, 10, 10000 * co.kilo * co.eV, 1000)
+    runner.init_list(0, 10, 10000 * co.kilo * co.eV, 2500)
     runner.set_emfield_func('front')
 
     init_front(runner)
@@ -40,18 +40,20 @@ def main():
     counter = Counter(runner)
 
     runner.inner_hooks.append(counter)
-    n = 100
+    n = 400
 
     runner.prepare_data(tfraction=0.0)
     plotter.phases(runner)
     plotter.front(runner)
     plotter.field(runner)
-    runner.output_n = 4000
+
+    runner.output_n = 8000
+    runner.max_particles = 5000
 
     for i in xrange(n):
-        runner(50 * co.nano)
+        runner(100 * co.nano)
 
-        growth, b = simple_regression(counter.t[-5:], log(counter.n[-5:]))
+        growth, b = simple_regression(counter.t[-10:], log(counter.n[-10:]))
         logging.info("growth rate = {:g} /ns".format(growth * co.nano))
 
         update_front(runner, growth)
@@ -92,6 +94,7 @@ class Counter(object):
         self._n.append(runner.nparticles)
         self.fp.write("{} {}\n".format(runner.TIME, runner.nparticles))
         self.fp.flush()
+
 
 def update_front(runner, growth):
     global E0, EB

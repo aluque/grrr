@@ -122,7 +122,7 @@ class Runner(object):
         self.init_time = self.TIME
         self.end_time  = self.init_time + duration
 
-        while (self.TIME <= self.end_time):
+        while self.TIME < self.end_time - 1e-5 * co.nano:
             grrr.list_step_n_with_purging(self.dt, 
                                           self.output_n, 
                                           self.max_particles,
