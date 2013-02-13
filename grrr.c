@@ -123,7 +123,8 @@ particle_init(int ptype)
   part->ptype = ptype;
   part->charge = particle_charge[ptype];
   part->mass = particle_mass[ptype];
-  
+  part->next = NULL;
+  part->thermal = FALSE;
   return part;
 }
 
@@ -197,6 +198,18 @@ list_clear(void)
 {
   while (particle_head != NULL) {
     particle_delete(particle_head, FALSE);
+  }
+}
+
+void
+list_erase(particle_t *plist)
+/* Erases all particles in a list, but does not change the main list. */
+{
+  particle_t *part, *partnext;
+
+  for (part = plist; part; part = partnext) {
+    partnext = part->next;
+    free(part);
   }
 }
 
@@ -348,7 +361,7 @@ count_collisions(int trials, double t, double dt, double *values)
       elastic_momentum(part->p, theta, part->p);
     }
 
-    if (rk4(part, t, dt, FALSE)) {
+    if (rk4_single(part, t, dt, FALSE)) {
       values[n] -= 1.0 / dt;
     }
 
@@ -623,6 +636,17 @@ drpdt(particle_t *part, double t, double *r, const double *p,
   return 0;
 }
 
+void
+drpdt_all(particle_t *plist, double t, double dt)
+/* Calculates dp and dr for all particles in plist */
+{
+  particle_t *part;
+  int thermal;
+  
+  for (part = plist; part; part = part->next) {
+    part->thermal = drpdt(part, t, part->r, part->p, part->dr, part->dp, dt);
+  }
+}
 
 int
 rk4_single(particle_t *part, double t, double dt, int update)
@@ -678,96 +702,101 @@ rk4_single(particle_t *part, double t, double dt, int update)
 
 void
 rk4(double t, double dt)
+/* Implements a full RK4 step of all the particles in the list. */
 {
-  double *dr1, *dr2, *dr3, *dr4;
-  double *dp1, *dp2, *dp3, *dp4;
-  double *r, *p;
-  double *rptr, *pptr;
-  int i, thermal;
-  size_t lsize;
-  lsize = 3 * sizeof(double) * particle_count;
-
-  dr1 = xmalloc(lsize);
-  dr2 = xmalloc(lsize);
-  dr3 = xmalloc(lsize);
-  dr4 = xmalloc(lsize);
-  dp1 = xmalloc(lsize);
-  dp2 = xmalloc(lsize);
-  dp3 = xmalloc(lsize);
-  dp4 = xmalloc(lsize);
-  r   = xmalloc(lsize);
-  p   = xmalloc(lsize);
-
-  rkstep0(t, dt, dr1, dp1);
-  rkadd(0.5, dr1, dp1, r, p);
-
-  free(dr1);
-  free(dr2);
-  free(dr3);
-  free(dr4);
-  free(dp1);
-  free(dp2);
-  free(dp3);
-  free(dp4);
-  free(r);
-  free(p);
-
-}
-
-static void
-rkstep(double t, double dt, 
-       const double *rin, const double *pin, 
-       double *rout, double *pout)
-/* Performs a Runke-Kutta inner step.  Here rin and pin are the particles
-   location and momenta; rout and pout are the resulting locations and momenta
-*/
-{
+  particle_t *plist1, *plist2, *plist3;
+  particle_t *part1, *part2, *part3;
   particle_t *part;
-  
-  for(part=particle_head; part; part=part->next) {
-    drpdt(part, t, rin, pin, rout, pout, dt);
-    rin += 3;
-    pin += 3;
-    rout += 3;
-    pout += 3;
-  }
-}
-
-static void
-rkstep0(double t, double dt, 
-       double *rout, double *pout)
-/* Same as before, but here inr and inp are taken from the particle's
-   structure.
-*/
-{
-  particle_t *part;
-  
-  for(part=particle_head; part; part=part->next) {
-    drpdt(part, t, part->r, part->p, rout, pout, dt);
-    rout += 3;
-    pout += 3;
-  }
-}
-
-static void
-rkadd(double factor, 
-      const double *dr, const double *dp,
-      double *rout, double *pout)
-/* Sets 
-      rout = particle->r + factor * dr, 
-      pout = particle->p + factor * dp. */
-{
   int i;
-  particle_t *part;
 
-  for(part=particle_head; part; part=part->next) {
-    for(i = 0; i < 3; i++) {
-      *(rout++) = part->r[i] + factor * *(dr++);
-      *(pout++) = part->p[i] + factor * *(dp++);
+  drpdt_all(particle_head, t, dt);
+  plist1 = rkstep(particle_head, particle_head, 0.5);
+
+  drpdt_all(plist1, t + 0.5 * dt, dt);
+  plist2 = rkstep(particle_head, plist1, 0.5);
+  
+  drpdt_all(plist2, t + 0.5 * dt, dt);
+  plist3 = rkstep(particle_head, plist2, 1.0);
+
+  drpdt_all(plist3, t + dt, dt);
+  
+  for(part = particle_head, part1 = plist1, part2 = plist2, part3 = plist3; 
+      part; 
+      part = part->next, 
+	part1 = part1->next, 
+	part2 = part2->next, 
+	part3 = part3->next) {
+
+    for (i = 0; i < 3; i++) {
+      part->r[i] = (part->r[i] + part->dr[i] / 6 + part1->dr[i] / 3 + 
+		    part2->dr[i] / 3 + part3->dr[i] / 6);
+
+      part->p[i] = (part->p[i] + part->dp[i] / 6 + part1->dp[i] / 3 + 
+		    part2->dp[i] / 3 + part3->dp[i] / 6);
+    }
+
+    part->thermal = (part->thermal || part1->thermal || part2->thermal ||
+		     part3->thermal);
+  }
+
+  list_erase(plist1);
+  list_erase(plist2);
+  list_erase(plist3);
+}
+
+
+
+particle_t *
+rkstep(particle_t *plist0, particle_t *plist1, double rkfactor)
+/* Performs a Runke-Kutta inner step.  It reads from plist0 and plist1
+   and creates a new particle list.  This new list is not doubly linked 
+   and does not touch particle_count, particle_head, etc.
+
+   For the new particles, we take position/momenta from plist0 and derivatives
+   from plist1; they can be the same.
+*/
+{
+  particle_t *part0, *part1, *newlist = NULL, *tail = NULL, *newpart;
+  int i;
+
+  for(part0 = plist0, part1 = plist1; part0; 
+      part0 = part0->next, part1 = part1->next) {
+    newpart = particle_init(part0->ptype);
+
+    for (i = 0; i < 3; i++) {
+      newpart->r[i] = part0->r[i] + rkfactor * part1->dr[i];
+      newpart->p[i] = part0->p[i] + rkfactor * part1->dp[i];
+    }
+
+    if (newlist == NULL) {
+      newlist = newpart;
+      tail = newpart;
+    } else {
+      if (tail != NULL) {
+	tail->next = newpart;
+	tail = newpart;
+      }
+    }
+  }
+
+  return newlist;
+}
+
+      
+void
+drop_thermal(void)
+/* Removes from the list all particles that have been thermalized. */
+{
+  particle_t *part, *newpart;
+
+  for (part = particle_head; part; part = newpart) {
+    newpart = part->next;
+    if (part->thermal) {
+      particle_delete(part, TRUE);
     }
   }
 }
-      
+
 
 int
 ionizing_collision(particle_t *part, double dt, double *K1, double *K2)
@@ -1006,7 +1035,7 @@ timestep(particle_t *part, double t, double dt)
     }
 
     newpart = part->next;
-    thermal = rk4(part, t, dt, TRUE);
+    thermal = rk4_single(part, t, dt, TRUE);
     if(thermal) {
       particle_delete(part, TRUE);      
     }
@@ -1068,6 +1097,31 @@ perform_elastic_collision(particle_t *part, double dt)
 
 
 void
+sync_list_step(double dt)
+/* Applies a synchronized time-step over the complete particle list. 
+   In the steps, some
+   particles may dissapear and others might be newly minted. */
+{
+  particle_t *part;
+
+  GAMMATH = 1 + KTH / MC2;
+
+  /* First let's check the collisions. */
+  for (part = particle_head; part; part = part->next) {
+    perform_ionizing_collision(part, dt);
+    perform_elastic_collision(part, dt);
+  }
+
+  /* Update r and p with a 4th order Runge-Kutta. */
+  rk4(TIME, dt);
+
+  /* Drop the thermalized particles. */
+  drop_thermal();
+
+  TIME += dt;
+}
+
+void
 list_step(double dt)
 /* Applies a time-step over the complete particle list. In the steps, some
    particles may dissapear and others might be newly minted. */
@@ -1091,7 +1145,7 @@ list_step_n(double dt, int n)
   int i;
 
   for(i = 0; i < n; i++) {
-    list_step(dt);
+    sync_list_step(dt);
   }
 }
 

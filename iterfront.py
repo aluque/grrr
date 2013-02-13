@@ -40,18 +40,18 @@ def main():
     counter = Counter(runner)
 
     runner.inner_hooks.append(counter)
-    n = 400
+    n = 10
 
     runner.prepare_data(tfraction=0.0)
     plotter.phases(runner)
     plotter.front(runner)
     plotter.field(runner)
 
-    runner.output_n = 8000
+    runner.output_n = 1000
     runner.max_particles = 5000
 
     for i in xrange(n):
-        runner(100 * co.nano)
+        runner(10 * co.nano)
 
         growth, b = simple_regression(counter.t[-10:], log(counter.n[-10:]))
         logging.info("growth rate = {:g} /ns".format(growth * co.nano))

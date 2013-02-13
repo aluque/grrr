@@ -39,8 +39,11 @@ class PARTICLE(Structure):
 PARTICLE._fields_ = [('ptype', c_int),
                      ('r', c_double *3),
                      ('p', c_double *3),
+                     ('dr', c_double *3),
+                     ('dp', c_double *3),
                      ('charge', c_int),
                      ('mass', c_int),
+                     ('thermal', c_int),
                      ('prev', POINTER(PARTICLE)),
                      ('next', POINTER(PARTICLE))]
 
