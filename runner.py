@@ -5,6 +5,7 @@ import logging
 from numpy import *
 import scipy.constants as co
 import grrr
+from inout import IOContainer
 
 M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
@@ -38,7 +39,7 @@ def parameter_property(name):
     return property(fget, fset) 
 
 
-class Runner(object):
+class Runner(IOContainer):
     """ A high-level class to run grrr simulations.  Note that this
     is a singleton, since you can't have more that one grrr simulation
     in the same process (libgrrr is non-reentrant). """

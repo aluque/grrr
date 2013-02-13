@@ -1,12 +1,14 @@
 """ Routines to plot the simulation status. """
 
 import logging
+import sys
 
 from numpy import *
 import scipy.constants as co
 import pylab
 from matplotlib import cm
 
+from inout import IOContainer
 import fitpl
 
 numpy_histogram = histogram
@@ -114,3 +116,25 @@ def selfcons_field(sim, tfraction=None):
     
     pylab.xlabel("$z - ut$ [m]")
     pylab.ylabel("$E_z$ [kV / cm]")
+
+
+
+def main():
+    from optparse import OptionParser
+
+    parser = OptionParser()
+    (opts, args) = parser.parse_args()
+
+    ioc = IOContainer()
+    ioc.open(args[0])
+
+    for step in ioc:
+        ioc.load(step)
+        phases(ioc)
+        histogram(ioc)
+        selfcons_field(ioc)
+
+    pylab.show()
+
+if __name__ == '__main__':
+    main()
