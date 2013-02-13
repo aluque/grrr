@@ -625,7 +625,7 @@ drpdt(particle_t *part, double t, double *r, const double *p,
 
 
 int
-rk4(particle_t *part, double t, double dt, int update)
+rk4_single(particle_t *part, double t, double dt, int update)
 /* Updates the r and p of particle *part by a time dt using a 4th order 
    Runge-Kutta solver. 
    If update is 0, just checks if the particle is being thermalized, without
@@ -676,6 +676,98 @@ rk4(particle_t *part, double t, double dt, int update)
   return 0;
 }
 
+void
+rk4(double t, double dt)
+{
+  double *dr1, *dr2, *dr3, *dr4;
+  double *dp1, *dp2, *dp3, *dp4;
+  double *r, *p;
+  double *rptr, *pptr;
+  int i, thermal;
+  size_t lsize;
+  lsize = 3 * sizeof(double) * particle_count;
+
+  dr1 = xmalloc(lsize);
+  dr2 = xmalloc(lsize);
+  dr3 = xmalloc(lsize);
+  dr4 = xmalloc(lsize);
+  dp1 = xmalloc(lsize);
+  dp2 = xmalloc(lsize);
+  dp3 = xmalloc(lsize);
+  dp4 = xmalloc(lsize);
+  r   = xmalloc(lsize);
+  p   = xmalloc(lsize);
+
+  rkstep0(t, dt, dr1, dp1);
+  rkadd(0.5, dr1, dp1, r, p);
+
+  free(dr1);
+  free(dr2);
+  free(dr3);
+  free(dr4);
+  free(dp1);
+  free(dp2);
+  free(dp3);
+  free(dp4);
+  free(r);
+  free(p);
+
+}
+
+static void
+rkstep(double t, double dt, 
+       const double *rin, const double *pin, 
+       double *rout, double *pout)
+/* Performs a Runke-Kutta inner step.  Here rin and pin are the particles
+   location and momenta; rout and pout are the resulting locations and momenta
+*/
+{
+  particle_t *part;
+  
+  for(part=particle_head; part; part=part->next) {
+    drpdt(part, t, rin, pin, rout, pout, dt);
+    rin += 3;
+    pin += 3;
+    rout += 3;
+    pout += 3;
+  }
+}
+
+static void
+rkstep0(double t, double dt, 
+       double *rout, double *pout)
+/* Same as before, but here inr and inp are taken from the particle's
+   structure.
+*/
+{
+  particle_t *part;
+  
+  for(part=particle_head; part; part=part->next) {
+    drpdt(part, t, part->r, part->p, rout, pout, dt);
+    rout += 3;
+    pout += 3;
+  }
+}
+
+static void
+rkadd(double factor, 
+      const double *dr, const double *dp,
+      double *rout, double *pout)
+/* Sets 
+      rout = particle->r + factor * dr, 
+      pout = particle->p + factor * dp. */
+{
+  int i;
+  particle_t *part;
+
+  for(part=particle_head; part; part=part->next) {
+    for(i = 0; i < 3; i++) {
+      *(rout++) = part->r[i] + factor * *(dr++);
+      *(pout++) = part->p[i] + factor * *(dp++);
+    }
+  }
+}
+      
 
 int
 ionizing_collision(particle_t *part, double dt, double *K1, double *K2)
@@ -934,6 +1026,45 @@ timestep(particle_t *part, double t, double dt)
     return part;
   }
 }
+
+void
+perform_ionizing_collision(particle_t *part, double dt)
+/* Checks if a particle undergoes an ionizing collision.  If it does, adds
+   the newly created particle to the particle list.  This new particle will
+   also be checked for ionizing collisions later. */
+{
+  int collides;
+  particle_t *newpart;
+  double K1, K2, p[3];
+
+  collides = ionizing_collision(part, dt, &K1, &K2);
+  if (!collides) return;
+
+  newpart = particle_init(part->ptype);
+  
+  memcpy(newpart->r, part->r, 3 * sizeof(double));
+  memcpy(p, part->p, 3 * sizeof(double));
+  
+  ionizing_momenta(p, K1, K2, part->p, newpart->p);
+  
+  particle_append(newpart, TRUE);
+}
+
+
+void
+perform_elastic_collision(particle_t *part, double dt)
+/* Checks if the particle undergoes an elastic collision; if it does,
+   update it momentum vector. */
+{
+  int elastic;
+  double theta;
+  elastic = elastic_collision(part, dt, &theta);
+
+  if (elastic) {
+    elastic_momentum(part->p, theta, part->p);
+  }
+}
+
 
 
 void
