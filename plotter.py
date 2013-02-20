@@ -200,6 +200,39 @@ def xi0(sim, tfraction=None):
 
 
 @figure
+def age_dxi(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    age = sim.TIME - sim.t0
+    xi0 = sim.r0[:, 2] - sim.U0 * sim.t0
+    xi  = sim.r[:, 2] - sim.U0 * sim.TIME
+
+    pylab.plot(age / co.nano, 
+               abs(xi - xi0),
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.xlabel("Age [ns]")
+    pylab.ylabel(r"$|\xi - \xi_0|$ [m]")
+
+
+@figure
+def engxi0(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    age = sim.TIME - sim.t0
+    pylab.plot(sim.r0[:, 2] - sim.U0 * sim.t0,
+               sim.eng / co.eV,
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.xlabel("Initial $z - ut$ [m]")
+    pylab.ylabel("Energy [eV]")
+
+
+@figure
 def eng0(sim, tfraction=None):
     if tfraction is None:
         tfraction = sim.tfraction
@@ -256,7 +289,7 @@ def phase_trajectory(sim, tfraction=None):
                'o', c=color, mew=0, ms=2.0)
 
     pylab.xlabel("Age [ns]")
-    pylab.ylabel("Initial $K$ [eV]")
+    pylab.ylabel("$z - ut$ [m]")
 
 
 def front_location(front):

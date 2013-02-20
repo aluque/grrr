@@ -693,6 +693,7 @@ drpdt(particle_t *part, double t, double *r, const double *p,
   int i;
 
   p2 = NORM2(p);
+
   gamma2 = 1. + p2 / (MC2 * M);
   gamma = sqrt(gamma2);
 
@@ -713,8 +714,19 @@ drpdt(particle_t *part, double t, double *r, const double *p,
 
   beta2 = 1 - 1 / gamma2;
   
-  fd  = truncated_bethe_fd(gamma, gamma2, beta2);
-  fd += bremsstrahlung_fd(gamma);
+  if (gamma <= 1 + FD_CUTOFF / MC2) {
+    fd  = truncated_bethe_fd(gamma, gamma2, beta2);
+    fd += bremsstrahlung_fd(gamma);
+  } else {
+    /* We are above FD_CUTOFF: Use the FD corresponding to FD_CUTOFF. */
+    double gamma_, gamma2_, beta2_;
+    gamma_ = 1 + FD_CUTOFF / MC2;
+    gamma2_ = gamma_ * gamma_;
+    beta2_ = 1 - 1 / gamma2_;
+    
+    fd  = truncated_bethe_fd(gamma_, gamma2_, beta2_);
+    fd += bremsstrahlung_fd(gamma_);    
+  }
 
   (*emfield_func) (t, r, e, b);
   
