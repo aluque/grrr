@@ -44,6 +44,9 @@ PARTICLE._fields_ = [('ptype', c_int),
                      ('charge', c_int),
                      ('mass', c_int),
                      ('thermal', c_int),
+                     ('t0', c_double),
+                     ('r0', c_double *3),
+                     ('p0', c_double *3),
                      ('prev', POINTER(PARTICLE)),
                      ('next', POINTER(PARTICLE))]
 
@@ -173,6 +176,36 @@ def particles_p():
     p = empty((particle_count.value, 3))
     for i, part in enumerate(iter_particles()):
         p[i, :] = part.p[:]
+
+    return p
+
+
+def particles_t0():
+    """ Returns an array with shape (NPARTICLES,) with the creation time
+    of each particle. """
+    b = empty((particle_count.value))
+    for i, part in enumerate(iter_particles()):
+        b[i] = part.t0
+
+    return b
+
+
+def particles_r0():
+    """ Returns an array with shape (NPARTICLES, 3) with all the particle
+    initial locations. """
+    r = empty((particle_count.value, 3))
+    for i, part in enumerate(iter_particles()):
+        r[i, :] = part.r0[:]
+
+    return r
+
+
+def particles_p0():
+    """ Returns an array with shape (NPARTICLES, 3) with the creation momenta
+    of the particles. """
+    p = empty((particle_count.value, 3))
+    for i, part in enumerate(iter_particles()):
+        p[i, :] = part.p0[:]
 
     return p
 

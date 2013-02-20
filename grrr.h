@@ -22,6 +22,10 @@ typedef struct particle_t {
   /* We flag a particle as thermalized to ignore it and delete it later. */
   int thermal;
 
+  /* For the anaylisis it is useful to record the creation time and initial
+     r and p of particles. */
+  double t0, r0[3], p0[3];
+
   /* We store all the particles in a doubly-linked list. */
   struct particle_t *prev, *next;
 
@@ -52,11 +56,12 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define RE2 (RE * RE)
 
 /* Planck's constant. */
-#define HBAR 1.0545717253362894e-34
-#define HBAR2 (HBAR * HBAR)
+#define HPLANK    6.62606896e-34
+#define HBAR      1.0545717253362894e-34
+#define HBAR2     (HBAR * HBAR)
 
 /* Some constants appearing in the Coulomb scattering formula. */
-#define COMPTON_WAVELENGTH (HBAR / (M * C))
+#define COMPTON_WAVELENGTH (HPLANK / (M * C))
 #define COULOMB_A (183.8 * COMPTON_WAVELENGTH * pow(AIR_Z, -1.0 / 3.0))
 #define COULOMB_A2 (COULOMB_A * COULOMB_A)
 #define COULOMB_B (0.25 * HBAR2 / COULOMB_A2)
@@ -121,6 +126,7 @@ void set_emfield_callback(emfield_func_t ef);
 particle_t *particle_init(int ptype);
 void particle_delete(particle_t *part, int track);
 void particle_append(particle_t *part, int track);
+void particle_birth(particle_t *part);
 void count_mobile(particle_t *plist);
 void solve_ez(void);
 void list_clear(void);

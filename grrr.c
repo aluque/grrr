@@ -66,6 +66,9 @@ double L = 3.0;
 int NINTERP = 0;
 double *INTERP_VALUES = NULL;
 
+/* This is an unphysical cutoff to try to model more easily. */
+double FD_CUTOFF = 1000 * MEV;
+
 /* We will track the creation/destruction of particles to keep track
    of the charge density. */
 #define __NCELLS 32768
@@ -186,6 +189,21 @@ particle_append(particle_t *part, int track)
   if (track) particle_track_charge(part, 1);
   particle_count++;
 }
+
+void
+particle_birth(particle_t *part)
+/* Sets the current t, r, p as the t0, r0 and p0 of a newly created particle */
+{
+  int i;
+
+  part->t0 = TIME;
+  
+  for (i = 0; i < 3; i++) {
+    part->r0[i] = part->r[i];
+    part->p0[i] = part->p[i];    
+  }
+}
+
 
 static void
 particle_track_charge(particle_t *part, int change)
@@ -641,6 +659,13 @@ total_fd(double K)
 {
   double gamma, gamma2, beta2, fd;
 
+  if (K >= FD_CUTOFF) {
+    /* This introduces a constant Fd above a certain energy FD_CUTOFF.
+       Although non-physical this is simple to analyze and provides a
+       "zero-order" model. */
+    K = FD_CUTOFF;
+  }
+
   gamma = 1 + K / MC2;
   gamma2 = gamma * gamma;
 
@@ -919,8 +944,8 @@ ionizing_collision(particle_t *part, double dt, double *K1, double *K2)
     return 0;
   } else {
     /* KABOOM! */
-    if (K2 != NULL) *K2 = K - Kp;
-    if (K1 != NULL) *K1 = Kp;
+    if (K2 != NULL) *K1 = K - Kp;
+    if (K1 != NULL) *K2 = Kp;
     return 1;
   }
 }
@@ -1135,6 +1160,7 @@ timestep(particle_t *part, double t, double dt)
     ionizing_momenta(p, K1, K2, part->p, newpart->p);
 
     particle_append(newpart, TRUE);
+    particle_birth(newpart);
     return part;
   }
 }
@@ -1156,10 +1182,11 @@ perform_ionizing_collision(particle_t *part, double dt)
   
   memcpy(newpart->r, part->r, 3 * sizeof(double));
   memcpy(p, part->p, 3 * sizeof(double));
-  
+
   ionizing_momenta(p, K1, K2, part->p, newpart->p);
   
   particle_append(newpart, TRUE);
+  particle_birth(newpart);
 }
 
 

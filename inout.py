@@ -3,7 +3,12 @@ import time
 import logging
 
 from numpy import *
+import scipy.constants as co
 import h5py
+
+M = co.electron_mass
+MC2 = co.electron_mass * co.c**2
+M2C4 = MC2**2
 
 logging.basicConfig(format='[%(asctime)s] %(message)s', 
                     datefmt='%a, %d %b %Y %H:%M:%S',
@@ -15,7 +20,8 @@ class IOContainer(object):
                     'dt', 'output_dt', 'output_n',
                     'max_particles', 'purge_factor']
 
-    SAVED_ATTRS = ['r', 'p', 'eng', 'zfcells', 'zccells', 'charge', 'ez']
+    SAVED_ATTRS = ['r', 'p', 'eng', 'zfcells', 'r0', 'p0', 't0', 
+                   'zccells', 'charge', 'ez']
 
     def save_to(self, fname):
         """ Sets the file to save data to. """
@@ -65,6 +71,7 @@ class IOContainer(object):
             g.create_dataset(var, data=value, compression='gzip')
             
         self.itimestep += 1
+
         self.root.attrs['nsteps'] = self.itimestep
         self.root.flush()
         logging.info("Timestep {} [TIME={}] saved.".format(gid, self.TIME))
@@ -72,6 +79,9 @@ class IOContainer(object):
 
     def load(self, gid):
         """ Load a given timestep. """
+        if gid == "latest":
+            gid = self.latest()
+
         g = self.steps[gid]
         self.TIME = g.attrs['TIME']
         self.istep = g.attrs['istep']
@@ -81,8 +91,35 @@ class IOContainer(object):
             setattr(self, var, value)
 
         self.tfraction = float(self.istep) / self.nsteps
-
+        self.xi = self.r[:, 2] - self.U0 * self.TIME
+        self.eng0 = sqrt(co.c**2 * sum(self.p0**2, axis=1) + M2C4) - MC2
         logging.info("Timestep {} [TIME={}] read.".format(gid, self.TIME))
+
+
+    def latest(self):
+        """ Returns the id of the latest timestep. """
+        return sorted(self.steps.keys())[-1]
+
+
+    def spectrum(self, bins=None, density=True):
+        """ Calculates the energy spectrum of the data.  Returns
+        energies, spectrum density. """
+
+        if bins is None:
+            bins = logspace(5.5, 9, 100)
+
+        beam = (self.p[:, 2]**2 / (self.p[:, 0]**2 + self.p[:, 1]**2)) > 1
+        h, a = histogram(self.eng[beam] / co.eV, 
+                         bins=bins, density=density)
+        am = 0.5 * (a[1:] + a[:-1])
+        
+        return am, h
+
+
+    def centroid(self):
+        """ Locates the centroid of the particles by averaginf their locations
+        """
+        return average(self.r, axis=0)
 
 
     def __iter__(self):
