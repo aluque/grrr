@@ -43,6 +43,7 @@ class IOContainer(object):
         self.root.flush()
         logging.info("File '{}' open for writing.".format(fname))
 
+
     def open(self, fname):
         """ Opens a file to read."""
         self.root = h5py.File(fname, "r")
@@ -116,10 +117,15 @@ class IOContainer(object):
         return am, h
 
 
-    def centroid(self):
-        """ Locates the centroid of the particles by averaginf their locations
+    def centroid(self, filter=slice(None)):
+        """ Locates the centroid of the particles by averaging their locations
         """
-        return average(self.r, axis=0)
+        return average(self.r[filter, :], axis=0)
+
+
+    def rstd(self, filter=slice(None)):
+        """ Finds the variance of the locations. """
+        return std(self.r[filter, :], axis=0)
 
 
     def __iter__(self):
