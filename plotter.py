@@ -106,6 +106,54 @@ def histogram(sim, tfraction=None):
 
 
 @figure
+def age_histogram(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    age = sim.TIME - sim.t0
+
+    bins = logspace(0, 4, 100) * co.nano
+    h, a = numpy_histogram(age[sim.xi > 0], bins=bins, density=True)
+    am = 0.5 * (a[1:] + a[:-1])
+    
+    pylab.plot(am / co.nano, h, 'o', mew=0, ms=4, c=color)
+    pylab.xlabel(r"Age, $\tau$ [ns]")
+    pylab.ylabel(r"$f(\tau)$ [1/eV]")
+
+
+@figure
+def age_angle(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    age = sim.TIME - sim.t0
+    theta = arccos(sim.p[:, 2] / sqrt(sim.p[:, 0]**2 + sim.p[:, 1]**2))
+
+    pylab.plot(age[sim.xi > 0] / co.nano, theta[sim.xi > 0], 
+               'o', mew=0, ms=2, c=color)
+    pylab.xlabel(r"Age, $\tau$ [ns]")
+    pylab.ylabel(r"$\theta$")
+
+
+@figure
+def energy_angle(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    theta = arccos(sim.p[:, 2] / sqrt(sim.p[:, 0]**2 + sim.p[:, 1]**2))
+
+    pylab.plot(sim.eng / co.eV, cos(theta), 
+               'o', mew=0, ms=2, c=color)
+    pylab.xlabel(r"Energy [eV]")
+    pylab.ylabel(r"$\cos(\theta$)")
+
+
+
+
+@figure
 def front(sim, tfraction=None):
     if tfraction is None:
         tfraction = sim.tfraction
@@ -113,15 +161,41 @@ def front(sim, tfraction=None):
     color = cm.jet(tfraction)
     bins = linspace(amin(sim.xi), amax(sim.xi), 100)
     h, a = numpy_histogram(sim.xi, bins=bins, density=True)
-    h *= sim.nparticles
 
     am = 0.5 * (a[1:] + a[:-1])
 
     flt = h > 0
-    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
+    pylab.plot(am[flt], h[flt], 'o', mew=0, ms=4, c=color)
 
     pylab.xlabel("$z - ut$ [m]")
     pylab.ylabel("$\sigma$ [1/m]")
+
+
+@figure
+def edge(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    bins = linspace(amin(sim.xi), amax(sim.xi), 500)
+    h, a = numpy_histogram(sim.xi, bins=bins, density=True)
+
+    am = 0.5 * (a[1:] + a[:-1])
+    imax = argmax(h)
+    ammax = am[imax]
+
+    xi = am[am > ammax] - ammax
+    n = h[am > ammax]
+
+    a, b = simple_regression(xi[n>0], log(n[n>0]))
+    pylab.plot(xi, n, 'o', mew=0, ms=5.0, c=color)
+    pylab.plot(xi, exp(xi * a + b), lw=2.0, alpha=0.3, c=color)
+
+    logging.info("delta = {:.4g} m".format(-1 / a))
+
+    pylab.semilogy()
+    pylab.xlabel("$z - ut$ [m]")
+    pylab.ylabel("$n$")
 
 
 @figure
@@ -153,20 +227,18 @@ def selfcons_field(sim, tfraction=None):
 
 
 @figure
-def front(sim, tfraction=None):
+def selfcons_field_xi(sim, tfraction=None):
     if tfraction is None:
         tfraction = sim.tfraction
 
     color = cm.jet(tfraction)
-
-    bins = linspace(amin(sim.xi), amax(sim.xi), 100)
-    h, a = numpy_histogram(sim.xi, bins=bins, density=True)
-    am = 0.5 * (a[1:] + a[:-1])
-    flt = h > 0
-    pylab.plot(abs(am[flt]), h[flt], lw=1.5, c=color)
-
+    pylab.plot(sim.zfcells - sim.TIME * sim.U0, 
+               sim.ez / (co.kilo / co.centi), 
+               lw=1.5, c=color)
+    
     pylab.xlabel("$z - ut$ [m]")
-    pylab.ylabel("$n$ [a.u.]")
+    pylab.ylabel("$E_z$ [kV / cm]")
+
 
 
 @figure
@@ -176,8 +248,8 @@ def age(sim, tfraction=None):
 
     color = cm.jet(tfraction)
     age = sim.TIME - sim.t0
-    pylab.plot(age / co.nano, 
-               sim.eng / co.eV,
+    pylab.plot(age[sim.xi > 0] / co.nano, 
+               sim.eng[sim.xi > 0] / co.eV,
                'o', c=color, mew=0, ms=2.0)
 
     pylab.xlabel("Age [ns]")
@@ -345,7 +417,7 @@ def main():
 
         front.append([ioc.TIME, ioc.centroid()[2]])
 
-    #front_location(array(front))
+    front_location(array(front))
 
     pylab.show()
 
