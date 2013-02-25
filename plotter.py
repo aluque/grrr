@@ -63,6 +63,25 @@ def momentum(sim, tfraction=None):
     pylab.ylabel("$p_z$ [eV/c]")
 
 
+
+@figure
+def location(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    flt = (sim.t0 == 0)
+
+    logging.info("nprimaries = {:d}".format(sum(flt)))
+
+    pylab.plot(sim.r[flt, 0], 
+               sim.r[flt, 2] - co.c * sim.TIME,
+               'o', c=color, mew=0, ms=2.0)
+    pylab.xlabel("$x$ [m]")
+    pylab.ylabel(r"$\xi$ [m]")
+
+
+
 @figure
 def distributions(sim, tfraction=None):
     if tfraction is None:
@@ -114,6 +133,26 @@ def front(sim, tfraction=None):
     bins = linspace(amin(sim.xi), amax(sim.xi), 100)
     h, a = numpy_histogram(sim.xi, bins=bins, density=True)
     h *= sim.nparticles
+
+    am = 0.5 * (a[1:] + a[:-1])
+
+    flt = h > 0
+    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
+
+    pylab.xlabel("$z - ut$ [m]")
+    pylab.ylabel("$\sigma$ [1/m]")
+
+
+@figure
+def primary_front(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    xi = sim.r[sim.t0 == 0, 2] - co.c * sim.TIME
+
+    bins = linspace(amin(xi), amax(xi), 100)
+    h, a = numpy_histogram(xi, bins=bins, density=True)
 
     am = 0.5 * (a[1:] + a[:-1])
 
