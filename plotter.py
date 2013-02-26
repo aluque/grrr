@@ -74,8 +74,11 @@ def location(sim, tfraction=None):
 
     logging.info("nprimaries = {:d}".format(sum(flt)))
 
-    pylab.plot(sim.r[flt, 0], 
-               sim.r[flt, 2] - co.c * sim.TIME,
+    rc = sim.centroid(filter=flt)
+    r = sim.r[flt, :] - rc[newaxis, :]
+ 
+    pylab.plot(r[:, 0], 
+               r[:, 2],
                'o', c=color, mew=0, ms=2.0)
     pylab.xlabel("$x$ [m]")
     pylab.ylabel(r"$\xi$ [m]")
@@ -196,16 +199,18 @@ def primary_front(sim, tfraction=None):
         tfraction = sim.tfraction
 
     color = cm.jet(tfraction)
+    flt = (sim.t0 == 0)
+    rc = sim.centroid(filter=flt)
 
-    xi = sim.r[sim.t0 == 0, 2] - co.c * sim.TIME
+    xi = sim.r[flt, 2] - rc[2]
 
-    bins = linspace(amin(xi), amax(xi), 100)
+    bins = linspace(-60, 10, 71)
     h, a = numpy_histogram(xi, bins=bins, density=True)
 
     am = 0.5 * (a[1:] + a[:-1])
 
     flt = h > 0
-    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
+    pylab.plot(am[flt], h[flt], 'o', mew=0, ms=3.0, c=color)
 
     pylab.xlabel("$z - ut$ [m]")
     pylab.ylabel("$n$ [1/m]")
@@ -218,7 +223,7 @@ def primary_p(sim, tfraction=None):
 
     color = cm.jet(tfraction)
 
-    pz = sim.p[sim.t0 == 0, 2]
+    pz = co.c * sim.p[sim.t0 == 0, 2] / co.eV
 
     bins = linspace(amin(pz), amax(pz), 100)
     h, a = numpy_histogram(pz, bins=bins, density=True)
@@ -226,10 +231,11 @@ def primary_p(sim, tfraction=None):
     am = 0.5 * (a[1:] + a[:-1])
 
     flt = h > 0
-    pylab.plot(co.c * am[flt] / co.eV, h[flt], lw=1.5, c=color)
+    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
 
     pylab.xlabel("$p_z$ [eV/c]")
-    pylab.ylabel("$n$")
+    pylab.ylabel("$n [c/eV]$")
+
 
 
 @figure

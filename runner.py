@@ -88,6 +88,7 @@ class Runner(IOContainer):
         grrr.set_front(self.front_xi, self.front_ez)
 
 
+    only_primaries   = staticmethod(grrr.only_primaries)
     set_emfield_func = staticmethod(grrr.set_emfield_func)
     list_clear       = staticmethod(grrr.list_clear)
     particles_p      = staticmethod(grrr.particles_p)

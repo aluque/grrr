@@ -143,6 +143,14 @@ def particle_weight(value=None):
     return var.value
 
 
+def only_primaries(value=True):
+    var = c_int.in_dll(grrr, 'ONLY_PRIMARIES')
+    if value is not None:
+        var.value = value
+
+    return var.value
+
+
 def create_particle(ptype, r, p, track=True):
     """ Creates a particle of type ptype and momentum and position puts 
     it in the particle pool. """

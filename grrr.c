@@ -66,6 +66,9 @@ double L = 3.0;
 int NINTERP = 0;
 double *INTERP_VALUES = NULL;
 
+/* If this flag is set we ignore all secondary particles. */
+int ONLY_PRIMARIES = 0;
+
 /* This is an unphysical cutoff to try to model more easily. */
 double FD_CUTOFF = 1000 * MEV;
 
@@ -1197,6 +1200,11 @@ perform_ionizing_collision(particle_t *part, double dt)
 
   ionizing_momenta(p, K1, K2, part->p, newpart->p);
   
+  if (ONLY_PRIMARIES) {
+    free(newpart);
+    return;
+  }
+
   particle_append(newpart, TRUE);
   particle_birth(newpart);
 }
