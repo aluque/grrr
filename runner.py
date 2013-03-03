@@ -88,18 +88,20 @@ class Runner(IOContainer):
         grrr.set_front(self.front_xi, self.front_ez)
 
 
-    only_primaries   = staticmethod(grrr.only_primaries)
-    set_emfield_func = staticmethod(grrr.set_emfield_func)
-    list_clear       = staticmethod(grrr.list_clear)
-    particles_p      = staticmethod(grrr.particles_p)
-    particles_r      = staticmethod(grrr.particles_r)
-    particles_t0     = staticmethod(grrr.particles_t0)
-    particles_p0     = staticmethod(grrr.particles_p0)
-    particles_r0     = staticmethod(grrr.particles_r0)
-    particles_energy = staticmethod(grrr.particles_energy)
-    particle_weight  = staticmethod(grrr.particle_weight)
-    charge_density   = staticmethod(grrr.charge_density)
-    selfcons_field   = staticmethod(grrr.selfcons_field)
+    only_primaries       = staticmethod(grrr.only_primaries)
+    set_emfield_func     = staticmethod(grrr.set_emfield_func)
+    list_clear           = staticmethod(grrr.list_clear)
+    particles_p          = staticmethod(grrr.particles_p)
+    particles_r          = staticmethod(grrr.particles_r)
+    particles_tau        = staticmethod(grrr.particles_tau)
+    particles_t0         = staticmethod(grrr.particles_t0)
+    particles_p0         = staticmethod(grrr.particles_p0)
+    particles_r0         = staticmethod(grrr.particles_r0)
+    particles_collisions = staticmethod(grrr.particles_collisions)
+    particles_energy     = staticmethod(grrr.particles_energy)
+    particle_weight      = staticmethod(grrr.particle_weight)
+    charge_density       = staticmethod(grrr.charge_density)
+    selfcons_field       = staticmethod(grrr.selfcons_field)
 
 
     def init_list(self, zmin, zmax, emax, n):
@@ -145,10 +147,12 @@ class Runner(IOContainer):
         are plotting functions that need r, p, eng etc. """
         self.r = self.particles_r()
         self.p = self.particles_p()
+        self.tau = self.particles_tau()
         self.r0 = self.particles_r0()
         self.p0 = self.particles_p0()
         self.eng = self.particles_energy(self.p)
         self.eng0 = self.particles_energy(self.p0)
+        self.nelastic, self.nionizing = self.particles_collisions()
         self.xi = self.r[:, 2] - self.U0 * self.TIME
         self.zfcells, self.charge = self.charge_density(return_faces=True)
         self.zccells, self.ez = self.selfcons_field()

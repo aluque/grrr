@@ -39,14 +39,18 @@ class PARTICLE(Structure):
 PARTICLE._fields_ = [('ptype', c_int),
                      ('r', c_double *3),
                      ('p', c_double *3),
+                     ('tau', c_double),
                      ('dr', c_double *3),
                      ('dp', c_double *3),
+                     ('dtau', c_double),
                      ('charge', c_int),
                      ('mass', c_int),
                      ('thermal', c_int),
                      ('t0', c_double),
                      ('r0', c_double *3),
                      ('p0', c_double *3),
+                     ('nelastic', c_int),
+                     ('nionizing', c_int),
                      ('prev', POINTER(PARTICLE)),
                      ('next', POINTER(PARTICLE))]
 
@@ -198,6 +202,16 @@ def particles_t0():
     return b
 
 
+def particles_tau():
+    """ Returns an array with shape (NPARTICLES,) with the proper time
+    of each particle. """
+    b = empty((particle_count.value))
+    for i, part in enumerate(iter_particles()):
+        b[i] = part.tau
+
+    return b
+
+
 def particles_r0():
     """ Returns an array with shape (NPARTICLES, 3) with all the particle
     initial locations. """
@@ -216,6 +230,20 @@ def particles_p0():
         p[i, :] = part.p0[:]
 
     return p
+
+
+def particles_collisions():
+    """ Returns two arrays with shape (NPARTICLES,) with the number of
+    elastic and ionizing collisions that a particle has experienced in
+    his lifetime. """
+    nelastic = empty((particle_count.value,))
+    nionizing = empty((particle_count.value,))
+
+    for i, part in enumerate(iter_particles()):
+        nelastic[i] = part.nelastic
+        nionizing[i] = part.nionizing
+
+    return nelastic, nionizing
 
 
 def particles_energy(p=None):

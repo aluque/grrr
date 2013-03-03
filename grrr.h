@@ -8,12 +8,16 @@ const int particle_mass[3] = {1, 1, 0};
 typedef struct particle_t {
   enum particle_type ptype;
 
-  /* The momentum and location. */
+  /* The momentum, location. */
   double r[3], p[3];
   
+  /* We also integrate the particle's proper time.  This is not needed for
+     the simulation but it may be useful for the analysis. */
+  double tau;
+
   /* The RK4 algorithm is much easier if we also store here the derivatives
-     of r and p. */
-  double dr[3], dp[3];
+     of r, p and tau. */
+  double dr[3], dp[3], dtau;
 
   /* The charge and mass is set as a multiple of the elementary charge
      and the electron mass. */
@@ -25,6 +29,11 @@ typedef struct particle_t {
   /* For the anaylisis it is useful to record the creation time and initial
      r and p of particles. */
   double t0, r0[3], p0[3];
+
+
+  /* At some point, I also find useful to cound the number of collision
+     that each particle has undergone. */
+  int nelastic, nionizing;
 
   /* We store all the particles in a doubly-linked list. */
   struct particle_t *prev, *next;
@@ -134,7 +143,7 @@ void list_erase(particle_t *plist);
 
 double total_fd(double K);
 int drpdt(particle_t *part, double t, double *r, const double *p, 
-	  double *dr, double *dp, double h);
+	  double *dr, double *dp, double *dtau, double h);
 void drpdt_all(particle_t *plist, double t, double dt);
 int rk4_single(particle_t *part, double t, double dt, int update);
 void rk4(double t, double dt);

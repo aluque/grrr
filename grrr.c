@@ -60,7 +60,7 @@ double THETA = PI / 4;
 double EB = 0.0;
 double EBWIDTH = 0.0;
 double B0 = 20e-6;
-double KTH = 0.005 * MEV;
+double KTH = 0.001 * MEV;
 double GAMMATH;
 double L = 3.0;
 int NINTERP = 0;
@@ -200,7 +200,11 @@ particle_birth(particle_t *part)
   int i;
 
   part->t0 = TIME;
-  
+  part->tau = 0;
+
+  part->nelastic = 0;
+  part->nionizing = 0;
+
   for (i = 0; i < 3; i++) {
     part->r0[i] = part->r[i];
     part->p0[i] = part->p[i];    
@@ -683,8 +687,8 @@ total_fd(double K)
 
 int
 drpdt(particle_t *part, double t, double *r, const double *p, 
-      double *dr, double *dp, double h)
-/* Computes the derivatives of r and p for the particle *part.
+      double *dr, double *dp, double *dtau, double h)
+/* Computes the derivatives of r, p and tau for the particle *part.
    Note that part->p and part->r are ignored.  The particle is only needed
    for the charge. 
    The result is multipled by h (use h=1.0) if you want the actual derivatives.
@@ -717,6 +721,9 @@ drpdt(particle_t *part, double t, double *r, const double *p,
 
   beta2 = 1 - 1 / gamma2;
   
+  /* We already know the derivative of the proper time. */
+  *dtau = h / gamma;
+
   if (gamma <= 1 + FD_CUTOFF / MC2) {
     fd  = truncated_bethe_fd(gamma, gamma2, beta2);
     fd += bremsstrahlung_fd(gamma);
@@ -767,7 +774,8 @@ drpdt_all(particle_t *plist, double t, double dt)
   }
 
   for (part = plist; part; part = part->next) {
-    part->thermal = drpdt(part, t, part->r, part->p, part->dr, part->dp, dt);
+    part->thermal = drpdt(part, t, part->r, part->p, 
+			  part->dr, part->dp, &(part->dtau), dt);
   }
 }
 
@@ -781,27 +789,31 @@ rk4_single(particle_t *part, double t, double dt, int update)
 {
   double dr1[3], dr2[3], dr3[3], dr4[3];
   double dp1[3], dp2[3], dp3[3], dp4[3];
-  double r[3], p[3];
+  double dtau1, dtau2, dtau3, dtau4;
+  double r[3], p[3], tau;
   int i, thermal;
 
-  thermal = drpdt(part, t, part->r, part->p, dr1, dp1, dt);
+  thermal = drpdt(part, t, part->r, part->p, dr1, dp1, &dtau1, dt);
   if(thermal) return 1;
 
   for (i = 0; i < 3; i++) {
     r[i] = part->r[i] + dr1[i] / 2;
     p[i] = part->p[i] + dp1[i] / 2;
   }
+  tau = part->tau + dtau1 / 2;
 
  
-  thermal = drpdt(part, t + 0.5 * dt, r, p, dr2, dp2, dt);
+  thermal = drpdt(part, t + 0.5 * dt, r, p, dr2, dp2, &dtau2, dt);
   if(thermal) return 1;
 
   for (i = 0; i < 3; i++) {
     r[i] = part->r[i] + dr2[i] / 2;
     p[i] = part->p[i] + dp2[i] / 2;
   }
+  tau = part->tau + dtau2 / 2;
 
-  thermal = drpdt(part, t + 0.5 * dt, r, p, dr3, dp3, dt);
+
+  thermal = drpdt(part, t + 0.5 * dt, r, p, dr3, dp3, &dtau3, dt);
   if(thermal) return 1;
  
 
@@ -809,8 +821,9 @@ rk4_single(particle_t *part, double t, double dt, int update)
     r[i] = part->r[i] + dr3[i];
     p[i] = part->p[i] + dp3[i];
   }
+  tau = part->tau + dtau3;
 
-  thermal = drpdt(part, t + dt, r, p, dr4, dp4, dt);
+  thermal = drpdt(part, t + dt, r, p, dr4, dp4, &dtau4, dt);
   if(thermal) return 1;
 
   if (!update) return 0;
@@ -819,6 +832,7 @@ rk4_single(particle_t *part, double t, double dt, int update)
     part->r[i] = part->r[i] + dr1[i] / 6 + dr2[i] / 3 + dr3[i] / 3 + dr4[i] / 6;
     part->p[i] = part->p[i] + dp1[i] / 6 + dp2[i] / 3 + dp3[i] / 3 + dp4[i] / 6;
   }
+  part->tau = part->tau + dtau1 / 6 + dtau2 / 3 + dtau3 / 3 + dtau4 / 6;
 
   return 0;
 }
@@ -857,6 +871,8 @@ rk4(double t, double dt)
       part->p[i] = (part->p[i] + part->dp[i] / 6 + part1->dp[i] / 3 + 
 		    part2->dp[i] / 3 + part3->dp[i] / 6);
     }
+    part->tau = (part->tau + part->dtau / 6 + part1->dtau / 3 + 
+		 part2->dtau / 3 + part3->dtau / 6);
 
     part->thermal = (part->thermal || part1->thermal || part2->thermal ||
 		     part3->thermal);
@@ -890,6 +906,7 @@ rkstep(particle_t *plist0, particle_t *plist1, double rkfactor)
       newpart->r[i] = part0->r[i] + rkfactor * part1->dr[i];
       newpart->p[i] = part0->p[i] + rkfactor * part1->dp[i];
     }
+    newpart->tau = part0->tau + rkfactor * part1->dtau;
 
     if (newlist == NULL) {
       newlist = newpart;
@@ -1155,6 +1172,7 @@ timestep(particle_t *part, double t, double dt)
     elastic = elastic_collision(part, dt, &theta);
     if (elastic) {
       elastic_momentum(part->p, theta, part->p);
+      part->nelastic++;
     }
 
     newpart = part->next;
@@ -1173,6 +1191,7 @@ timestep(particle_t *part, double t, double dt)
     memcpy(p, part->p, 3 * sizeof(double));
 
     ionizing_momenta(p, K1, K2, part->p, newpart->p);
+    part->nionizing++;
 
     particle_append(newpart, TRUE);
     particle_birth(newpart);
@@ -1199,7 +1218,8 @@ perform_ionizing_collision(particle_t *part, double dt)
   memcpy(p, part->p, 3 * sizeof(double));
 
   ionizing_momenta(p, K1, K2, part->p, newpart->p);
-  
+  part->nionizing++;
+
   if (ONLY_PRIMARIES) {
     free(newpart);
     return;
@@ -1221,6 +1241,7 @@ perform_elastic_collision(particle_t *part, double dt)
 
   if (elastic) {
     elastic_momentum(part->p, theta, part->p);
+    part->nelastic++;
   }
 }
 
