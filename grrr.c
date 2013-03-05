@@ -60,7 +60,7 @@ double THETA = PI / 4;
 double EB = 0.0;
 double EBWIDTH = 0.0;
 double B0 = 20e-6;
-double KTH = 0.001 * MEV;
+double KTH = 0.01 * MEV;
 double GAMMATH;
 double L = 3.0;
 int NINTERP = 0;
@@ -137,13 +137,17 @@ particle_init(int ptype)
    are set to 0. */
 {
   particle_t *part;
+  static int nid = 0;
+
   part = xcalloc(1, sizeof(particle_t));
 
   part->ptype = ptype;
+  part->id = nid++;
   part->charge = particle_charge[ptype];
   part->mass = particle_mass[ptype];
   part->next = NULL;
   part->thermal = FALSE;
+  
   return part;
 }
 
@@ -704,6 +708,9 @@ drpdt(particle_t *part, double t, double *r, const double *p,
   gamma2 = 1. + p2 / (MC2 * M);
   gamma = sqrt(gamma2);
 
+  /* We already know the derivative of the proper time. */
+  *dtau = h / gamma;
+
   if (gamma < GAMMATH) {
     /* The particle has been thermalized.  No sense in continuing. */
     return 1;
@@ -721,9 +728,6 @@ drpdt(particle_t *part, double t, double *r, const double *p,
 
   beta2 = 1 - 1 / gamma2;
   
-  /* We already know the derivative of the proper time. */
-  *dtau = h / gamma;
-
   if (gamma <= 1 + FD_CUTOFF / MC2) {
     fd  = truncated_bethe_fd(gamma, gamma2, beta2);
     fd += bremsstrahlung_fd(gamma);

@@ -91,6 +91,7 @@ class Runner(IOContainer):
     only_primaries       = staticmethod(grrr.only_primaries)
     set_emfield_func     = staticmethod(grrr.set_emfield_func)
     list_clear           = staticmethod(grrr.list_clear)
+    particles_id         = staticmethod(grrr.particles_id)
     particles_p          = staticmethod(grrr.particles_p)
     particles_r          = staticmethod(grrr.particles_r)
     particles_tau        = staticmethod(grrr.particles_tau)
@@ -157,6 +158,7 @@ class Runner(IOContainer):
         self.zfcells, self.charge = self.charge_density(return_faces=True)
         self.zccells, self.ez = self.selfcons_field()
         self.t0 = self.particles_t0()
+        self.id = self.particles_id()
 
         if tfraction is None:
             tfraction = ((self.TIME - self.init_time) 

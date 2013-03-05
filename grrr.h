@@ -8,6 +8,9 @@ const int particle_mass[3] = {1, 1, 0};
 typedef struct particle_t {
   enum particle_type ptype;
 
+  /* An unique identified fot the particle. */
+  int id;
+
   /* The momentum, location. */
   double r[3], p[3];
   

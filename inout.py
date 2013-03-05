@@ -20,7 +20,7 @@ class IOContainer(object):
                     'dt', 'output_dt', 'output_n',
                     'max_particles', 'purge_factor']
 
-    SAVED_ATTRS = ['r', 'p', 'eng', 'zfcells', 'r0', 'p0', 't0', 'tau', 
+    SAVED_ATTRS = ['id', 'r', 'p', 'eng', 'zfcells', 'r0', 'p0', 't0', 'tau', 
                    'zccells', 'charge', 'ez', 'nelastic', 'nionizing']
 
     def save_to(self, fname):

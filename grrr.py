@@ -37,6 +37,7 @@ class PARTICLE(Structure):
     pass
 
 PARTICLE._fields_ = [('ptype', c_int),
+                     ('id', c_int),
                      ('r', c_double *3),
                      ('p', c_double *3),
                      ('tau', c_double),
@@ -208,6 +209,16 @@ def particles_tau():
     b = empty((particle_count.value))
     for i, part in enumerate(iter_particles()):
         b[i] = part.tau
+
+    return b
+
+
+def particles_id():
+    """ Returns an array with shape (NPARTICLES,) with the id
+    of each particle. """
+    b = empty((particle_count.value), dtype='i')
+    for i, part in enumerate(iter_particles()):
+        b[i] = part.id
 
     return b
 
