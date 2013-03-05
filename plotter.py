@@ -8,8 +8,9 @@ import scipy.constants as co
 import pylab
 from matplotlib import cm
 
-from inout import IOContainer
+from inout import IOContainer, M, MC2
 import fitpl
+from scipy.optimize import leastsq
 
 numpy_histogram = histogram
 logging.basicConfig(format='[%(asctime)s] %(message)s', 
@@ -50,14 +51,43 @@ def phases(sim, tfraction=None):
 
 
 @figure
+def p2(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    pylab.plot(sim.TIME - sim.t0[sim.t0==0], 
+               co.c * co.c * sum(sim.p[sim.t0 == 0, :]**2, axis=1) 
+               / co.eV / co.eV, 
+               'o',
+               c=color, mew=0, ms=2.0)
+    pylab.ylabel("$p^2$")
+    pylab.xlabel("$z$ [m]")
+
+
+@figure
+def pz(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    pylab.plot(sim.TIME - sim.t0[sim.t0==0], 
+               co.c * sim.p[sim.t0 == 0, 2] / co.eV, 
+               'o',
+               c=color, mew=0, ms=2.0)
+    pylab.ylabel("$p^2$")
+    pylab.xlabel("$z$ [m]")
+
+
+@figure
 def momentum(sim, tfraction=None):
     if tfraction is None:
         tfraction = sim.tfraction
 
     color = cm.jet(tfraction)
-
-    pylab.plot(co.c * sim.p[:, 1] / co.eV, 
-               co.c * sim.p[:, 2] / co.eV,
+    flt = sim.t0 == 0
+    pylab.plot(co.c * sim.p[flt, 1] / co.eV, 
+               co.c * sim.p[flt, 2] / co.eV,
                'o', c=color, mew=0, ms=2.0)
     pylab.xlabel("$p_y$ [eV/c]")
     pylab.ylabel("$p_z$ [eV/c]")
@@ -84,6 +114,83 @@ def location(sim, tfraction=None):
     pylab.ylabel(r"$\xi$ [m]")
 
 
+@figure
+def beta_front(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    v = (sim.r[:, 2] - 5) / sim.TIME / co.c
+    zmin, zmax = amin(v), amax(v)
+
+    bins = linspace(zmin, zmax, 60)
+    h, a = histogram(v, bins=bins, density=True)
+
+    am = 0.5 * (a[1:] + a[:-1])
+    p0 = array([1.0, a[argmax(h)], std(v)])
+
+    def residua(p):
+        return (reldiff(p, am[h > 0]) - h[h > 0]) / sqrt(h[h > 0])
+
+    p, _ = leastsq(residua, p0)
+
+    pylab.plot(am, h, 's', mew=0, ms=5.0, c=color)
+    pylab.plot(am, reldiff(p, am), lw=1.0, alpha=0.5, c=color)
+
+
+@figure
+def rtau(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    xi = abs(sim.r[:, 2] - co.c * sim.TIME - 5)
+    beta_avg = (sim.r[:, 2] - 5) / (co.c * sim.TIME)
+
+    pylab.plot(xi, 
+               sim.TIME * sim.tau / co.nano,
+               'o', c=color, mew=0, ms=2.0)
+
+    # pylab.plot(xi, 
+    #            sim.TIME * sqrt(1 - beta_avg**2) / co.nano,
+    #            's', c=color, mew=0, ms=1.0, alpha=0.6)
+
+    pylab.xlabel(r"$z$ [m]")
+    pylab.ylabel(r"$\tau$ [ns]")
+
+
+@figure
+def eng_tau(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+
+    pylab.plot(sim.eng / co.eV, 
+               sim.tau / co.nano,
+               'o', c=color, mew=0, ms=2.0)
+
+
+    pylab.xlabel(r"$K$ [eV]")
+    pylab.ylabel(r"$\tau$ [ns]")
+
+
+@figure
+def collisions_tau(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+
+    pylab.plot(sim.nelastic, 
+               sim.TIME * sim.tau / co.nano,
+               'o', c=color, mew=0, ms=2.0)
+
+
+    pylab.xlabel(r"# collisions")
+    pylab.ylabel(r"$\tau$ [ns]")
+
+
 
 @figure
 def distributions(sim, tfraction=None):
@@ -97,6 +204,19 @@ def distributions(sim, tfraction=None):
     pylab.plot(co.c * sim.p[self.xi < 0, 1] / co.eV, 
                co.c * sim.p[self.xi < 0, 2] / co.eV,
                'o', c='#0000bb', mew=0, ms=2.0)
+
+    pylab.xlabel("$p_y$ [eV/c]")
+    pylab.ylabel("$p_z$ [eV/c]")
+
+
+@figure
+def primary_dist(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    pylab.plot(co.c * sim.p[sim.t0 == 0, 1] / co.eV, 
+               co.c * sim.p[sim.t0 == 0, 2] / co.eV,
+               'o', c='#990000', mew=0, ms=2.0)
 
     pylab.xlabel("$p_y$ [eV/c]")
     pylab.ylabel("$p_z$ [eV/c]")
@@ -173,6 +293,20 @@ def energy_angle(sim, tfraction=None):
     pylab.ylabel(r"$\cos(\theta$)")
 
 
+@figure
+def tau_angle(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    costheta = sim.p[:, 2] / sqrt(sim.p[:, 0]**2 + sim.p[:, 1]**2)
+
+    pylab.plot(sim.tau / co.nano, costheta, 
+               'o', mew=0, ms=2, c=color)
+    pylab.xlabel(r"$\tau$ [ns]")
+    pylab.ylabel(r"$\cos(\theta$)")
+
+
 
 
 @figure
@@ -201,6 +335,7 @@ def primary_front(sim, tfraction=None):
     color = cm.jet(tfraction)
     flt = (sim.t0 == 0)
     rc = sim.centroid(filter=flt)
+    rstd = sim.rstd(filter=flt)
 
     xi = sim.r[flt, 2] - rc[2]
 
@@ -208,24 +343,31 @@ def primary_front(sim, tfraction=None):
     h, a = numpy_histogram(xi, bins=bins, density=True)
 
     am = 0.5 * (a[1:] + a[:-1])
+    pylab.plot(am, 1 / sqrt(2 * pi) / rstd[2] * exp(-am**2 / (2 * rstd[2]**2)),
+               lw=1.0, alpha=0.7, c=color)
 
     flt = h > 0
-    pylab.plot(am[flt], h[flt], 'o', mew=0, ms=3.0, c=color)
+    pylab.plot(am[flt], h[flt], 'o', mew=0, ms=4.0, c=color)
+
 
     pylab.xlabel("$z - ut$ [m]")
     pylab.ylabel("$n$ [1/m]")
 
 
 @figure
-def primary_p(sim, tfraction=None):
+def primary_pz(sim, tfraction=None):
     if tfraction is None:
         tfraction = sim.tfraction
 
     color = cm.jet(tfraction)
 
+    #dpz = max(sim.p[sim.t0 == 0, 2]) - sim.p[sim.t0 == 0, 2]
     pz = co.c * sim.p[sim.t0 == 0, 2] / co.eV
 
-    bins = linspace(amin(pz), amax(pz), 100)
+    print("Distribution of pz: avg = {:g}, var = {:g}, std = {:g}"
+          .format(average(pz), var(pz), std(pz)))
+
+    bins = linspace(nanmin(pz), nanmax(pz), 100)
     h, a = numpy_histogram(pz, bins=bins, density=True)
 
     am = 0.5 * (a[1:] + a[:-1])
@@ -235,6 +377,109 @@ def primary_p(sim, tfraction=None):
 
     pylab.xlabel("$p_z$ [eV/c]")
     pylab.ylabel("$n [c/eV]$")
+
+
+@figure
+def primary_p2(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+
+    #dpz = max(sim.p[sim.t0 == 0, 2]) - sim.p[sim.t0 == 0, 2]
+    p2 = sum((co.c * sim.p[sim.t0 == 0, :] / co.eV)**2, axis=1)
+
+    bins = linspace(nanmin(p2), nanmax(p2), 100)
+    h, a = numpy_histogram(p2, bins=bins, density=True)
+
+    am = 0.5 * (a[1:] + a[:-1])
+
+    flt = h > 0
+    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
+
+    pylab.xlabel("$p^2$ [eV/c]")
+    pylab.ylabel("$n [c/eV]$")
+
+
+@figure
+def primary_py(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+
+    py = co.c * sim.p[sim.t0 == 0, 1] / co.eV
+
+    bins = linspace(amin(py), amax(py), 100)
+    h, a = numpy_histogram(py, bins=bins, density=True)
+
+    am = 0.5 * (a[1:] + a[:-1])
+
+    flt = h > 0
+    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
+
+    pylab.xlabel("$p_y$ [eV/c]")
+    pylab.ylabel("$n [c/eV]$")
+
+
+@figure
+def primary_v_hist(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+
+    flt = sim.t0 == 0
+    v = sim.p[flt, 2] / (co.c * co.electron_mass 
+                         * sqrt(1 + sum(sim.p[flt, :]**2, axis=1) 
+                                 / (M * MC2)))
+
+    bins = linspace(0.995, 1.0, 100)
+    h, a = numpy_histogram(v, bins=bins, density=True)
+
+    am = 0.5 * (a[1:] + a[:-1])
+
+    flt = h > 0
+    pylab.plot(am[flt], h[flt], lw=1.5, c=color)
+
+    pylab.xlabel("$v$ [c]")
+    pylab.ylabel("$n [c/eV]$")
+
+
+@figure
+def primary_v(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+
+    flt = sim.t0 == 0
+    v = sim.p[flt, :] / (co.c * co.electron_mass 
+                         * sqrt(1 + sum(sim.p[flt, :]**2, axis=1)[:, newaxis]
+                                 / (M * MC2)))
+
+    pylab.plot(v[:, 1], v[:, 2], 'o', mew=0, ms=4.0, c=color)
+
+    pylab.xlabel("$v_y$ [c]")
+    pylab.ylabel("$v_z$ [c]$")
+
+
+
+@figure
+def collisions(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+
+    eng = sim.eng[sim.t0 == 0]
+
+    pylab.plot(sim.nionizing, 
+                abs(sim.EB) * (sim.r[sim.t0 == 0, 2] - 5) - eng / co.eV, 
+               'o', mew=0, ms=4.0, c=color)
+
+    pylab.xlabel("# inelastic collisions")
+    pylab.ylabel(r"$\Delta p_z$ [eV/c]")
 
 
 
@@ -321,6 +566,104 @@ def age(sim, tfraction=None):
 
     pylab.xlabel("Age [ns]")
     pylab.ylabel("$K$ [eV]")
+
+
+@figure
+def age_pz(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    age = sim.TIME - sim.t0
+    pylab.plot(age / co.nano, 
+               co.c * sim.p[:, 2] / co.eV,
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.xlabel("Age [ns]")
+    pylab.ylabel("$p_z$ [eV/c]")
+
+
+@figure
+def age_p(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    age = sim.TIME - sim.t0
+    pylab.plot(age / co.nano, 
+               co.c * sqrt(sum(sim.p**2, axis=1)) / co.eV,
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.xlabel("Age [ns]")
+    pylab.ylabel("$p_z$ [eV/c]")
+
+
+@figure
+def dz_p(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    dz = sim.r[:, 2] - sim.r0[:, 2]
+    pylab.plot(dz, 
+               co.c * sqrt(sum(sim.p**2, axis=1)) / co.eV,
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.xlabel("$\Delta z$ [m]")
+    pylab.ylabel("$|p|$ [eV/c]")
+
+
+@figure
+def dz_pz(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    dz = sim.r[:, 2] - sim.r0[:, 2]
+    pylab.plot(dz, 
+               co.c * sim.p[:, 2] / co.eV,
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.xlabel("$\Delta z$ [m]")
+    pylab.ylabel("$|p|$ [eV/c]")
+
+
+@figure
+def p_pz(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    pylab.plot(co.c * sqrt(sum(sim.p**2, axis=1)) / co.eV, 
+               co.c * sim.p[:, 2] / co.eV,
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.ylabel("$p_z$ [m]")
+    pylab.xlabel("$|p|$ [eV/c]")
+
+
+@figure
+def v_p(sim, tfraction=None):
+    if tfraction is None:
+        tfraction = sim.tfraction
+
+    color = cm.jet(tfraction)
+    v = sim.p[:, 2] / (co.c * co.electron_mass 
+                       * sqrt(1 + sum(sim.p[:, :]**2, axis=1) 
+                                / (M * MC2)))
+    vp = sim.p[:, 2] / (co.c * co.electron_mass 
+                       * sqrt(1 + sim.p[:, 2]**2
+                                / (M * MC2)))
+    pylab.plot(co.c * sim.p[:, 2] / co.eV,
+               1 - v,
+               'o', c=color, mew=0, ms=2.0)
+
+    pylab.plot(co.c * sim.p[:, 2] / co.eV,
+               1 - vp,
+               'o', mew=0, ms=2.0, c="#999999", alpha=0.7)
+
+    pylab.ylabel(r"$1 - \beta$")
+    pylab.xlabel(r"$p_z$ [eV/c]")
 
 
 @figure
@@ -457,6 +800,13 @@ def simple_regression(xi, yi):
     
     r = linalg.lstsq(A, yi)
     return r[0][0], r[0][1]
+
+
+def reldiff(p, z):
+    a, v, sigma = p
+    return a * (exp(-(z - v)**2 / (2 * (1 - v * z)**2 * sigma**2))
+                *  (1 - v**2) * sigma**2
+                / (1 - v * z))**2
 
 
 def main():
