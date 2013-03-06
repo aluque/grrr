@@ -1,10 +1,13 @@
 import sys
 import time
 import logging
+from param import ParamContainer
 
 from numpy import *
 import scipy.constants as co
 import h5py
+
+from param import ParamContainer, param, positive, contained_in
 
 M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
@@ -14,14 +17,89 @@ logging.basicConfig(format='[%(asctime)s] %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
                     level=logging.DEBUG)
 
-class IOContainer(object):
-    SAVED_PARAMS = ['E0', 'EB', 'B0', 'L', 'THETA', 'KTH',
-                    'NCELLS', 'U0', 'CELL_DZ',
-                    'dt', 'output_dt', 'output_n',
-                    'max_particles', 'purge_factor']
-
+class IOContainer(ParamContainer):
     SAVED_ATTRS = ['id', 'r', 'p', 'eng', 'zfcells', 'r0', 'p0', 't0', 'tau', 
                    'zccells', 'charge', 'ez', 'nelastic', 'nionizing']
+
+    @param(default=0.0)
+    def E0(s):
+        return float(s)
+
+    @param(default=0.0)
+    def EB(s):
+        """ Electric field behind the front. """
+        return float(s)
+
+    @param(default=co.c)
+    def U0(s):
+        """ Front velocity (if not self-consistently calculated) """
+        return float(s)
+
+    @param(default=0.0)
+    def B0(s):
+        """ The geomagnetic field. """
+        return float(s)
+
+    @param(positive, default=3.0)
+    def L(s):
+        return float(s)
+
+    @param(positive, default=0.0025 * co.nano)
+    def dt(s):
+        """ The timestep of the simulation."""
+        return float(s)
+
+    @param(positive, default=250 * co.nano)
+    def end_time(s):
+        """ The end time of the simulation. """
+        return float(s)
+
+    @param(positive, default=20*co.nano)
+    def output_dt(s):
+        """ The timestep for output data. """
+        return float(s)
+
+    @param(positive, default=1.0)
+    def init_particle_weight(s):
+        """ Initial weight of the superparticles. """
+        return float(s)
+
+    @param(default=1.0)
+    def init_particle_energy(s):
+        """ Initial energy of the particles (in eV). """
+        return float(s)
+
+    @param(positive, default=0.0)
+    def init_particle_z(s):
+        """ Initial z-location of the particles. """
+        return float(s)
+
+    @param(positive, default=2500)
+    def max_particles(s):
+        """ Max. number of superparticles (will purge when exceeded)."""
+        return int(s)
+
+    @param(positive, default=0.75)
+    def purge_factor(s):
+        """ Purging factor when max_particles is reached. """
+        return float(s)
+
+    @param(contained_in({'static', 'wave', 'const', 'pulse',
+                         'interf', 'dipole', 'eval', 'front',
+                         'selfcons'}), default='selfcons')
+    def emfield(s):
+        return s
+
+
+    @param(default=False)
+    def track_only_primaries(s):
+        return bool(s)
+
+    @param(positive, default=1000)
+    def init_particles(s):
+        """ Initial number of particles. """
+        return int(s)
+
 
     def save_to(self, fname):
         """ Sets the file to save data to. """
@@ -30,15 +108,7 @@ class IOContainer(object):
         self.itimestep = 0
         self.steps = self.root.create_group('steps')
 
-        # We always write at least these metadata
-        self.root.attrs['command'] = ' '.join(sys.argv)
-        self.root.attrs['timestamp'] = time.time()
-        self.root.attrs['ctime'] = time.ctime()
-        self.root.attrs['nsteps'] = 0
-
-        for param in self.SAVED_PARAMS:
-            value = getattr(self, param)
-            self.root.attrs[param] = value
+        self.h5_dump(self.root)
 
         self.root.flush()
         logging.info("File '{}' open for writing.".format(fname))
@@ -49,13 +119,11 @@ class IOContainer(object):
         self.root = h5py.File(fname, "r")
         self.fname = fname
         self.steps = self.root['steps']
-
-        for param in self.SAVED_PARAMS + ['nsteps', 'ctime', 'command']:
-            value = self.root.attrs[param]
-            setattr(self, param, value)
+        self.h5_load(self.root)
+        logging.info("File '{}' [{}@{} on {}] open for reading."
+                     .format(fname, self._user_, self._host_, self._ctime_))
 
         self.nsteps = self.root.attrs['nsteps']
-        logging.info("File '{}' open for reading.".format(fname))
 
 
     def save(self):

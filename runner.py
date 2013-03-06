@@ -1,5 +1,7 @@
 # This module provides a pythonic, high-level object class to run grrr
 # simulations.
+import sys
+import os
 import logging
 
 from numpy import *
@@ -15,63 +17,71 @@ logging.basicConfig(format='[%(asctime)s] %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
                     level=logging.DEBUG)
 
-class Singleton(type):
-    def __init__(cls, name, bases, dict):
-        super(Singleton, cls).__init__(name, bases, dict)
-        cls.instance = None 
-
-    def __call__(cls,*args,**kw):
-        if cls.instance is None:
-            cls.instance = super(Singleton, cls).__call__(*args, **kw)
-        return cls.instance
-
-
-def parameter_property(name):
-    """ Creates a property that gets/sets a given parameter. """
-    def fget(self):
-        return grrr.get_parameter(name)
-
-    def fset(self, value):
-        grrr.set_parameter(name, value)
-    
-    fget.__doc__ = "The parameter {} in libgrrr.".format(name)
-
-    return property(fget, fset) 
 
 
 class Runner(IOContainer):
-    """ A high-level class to run grrr simulations.  Note that this
-    is a singleton, since you can't have more that one grrr simulation
-    in the same process (libgrrr is non-reentrant). """
+    """ A high-level class to run grrr simulations.  Note that 
+    libgrrr is non-reentrant, so different instances of this class
+    will interfere with each other. """
 
-    __metaclass__ = Singleton
+    def __init__(self, fname, ofile=None):
+        super(Runner, self).__init__()
+        self.file_load(fname)
 
-    def __init__(self):
-        self.init_hooks = []
-        self.inner_hooks = [self.print_status]
-        self.finish_hooks = []
+        if ofile is None:
+            base, ext = os.path.splitext(fname)
+            ofile = base + '.h5'
 
-        # Here we use some reasonable default values
-        self.dt = 0.0025 * co.nano
-        self.output_dt = 20 * co.nano
+        self.save_to(ofile)
+
+
+    def init_simulation(self):
+        """ Sets the parameters into the libgrrr-space and initializes the
+        particle list. """
+        for k in self.param_names:
+            if k.isupper():
+                grrr.set_parameter(k, getattr(self, k))
+            logging.info("Set parameter {} = {}".format(k, getattr(self, k)))
+
+        self.only_primaries(self.track_only_primaries)
+        self.set_emfield_func(self.emfield)
+        
+        self.list_clear()
+        self.particle_weight(self.init_particle_weight)
+        self.init_list(self.init_particle_z, self.init_particle_z,
+                       self.init_particle_energy, self.init_particles)
+        
         self.output_n = int(self.output_dt / self.dt)
-        self.max_particles = 2500
-        self.purge_factor = 0.5
+        
 
-    def __getattr__(self, name):
-        """ The parameters not included in an instance are directly
-        passed to the global variables of libgrrr. """
-        if name.isupper():
-            return grrr.get_parameter(name)
+    def run(self):
+        """ Runs the simulation. """
+        self.init_simulation()
+
+        while self.TIME <= self.end_time:
+            tfraction = self.TIME / self.end_time
+            self.prepare_data(tfraction)
+            self.save()
+
+            self.advance(self.output_dt)
+            
+        tfraction = self.TIME / self.end_time
+        self.prepare_data(tfraction)
+        self.save()
 
 
-    def __setattr__(self, name, value):
-        if name.isupper():
-            grrr.set_parameter(name, value)
-        else:
-            object.__setattr__(self, name, value)
+    def advance(self, duration):
+        """ Runs the simulation for a specified time 'duration'.
+        """
+        logging.debug("Simulating {:g} ns".format(duration / co.nano))
 
-    
+        grrr.list_step_n_with_purging(self.dt, 
+                                      self.output_n, 
+                                      self.max_particles,
+                                      self.purge_factor)
+        self.print_status()
+
+
     @property
     def nparticles(self):
         """ The number of (weighted) particles in the simulation. """
@@ -80,6 +90,10 @@ class Runner(IOContainer):
     @property
     def nsuper(self):
         return grrr.particle_count.value
+
+    @property
+    def TIME(self):
+        return grrr.get_parameter('TIME')
 
 
     def set_front(self, xi, ez):
@@ -121,27 +135,6 @@ class Runner(IOContainer):
             grrr.create_particle(grrr.ELECTRON, r0, p0)
 
     
-    def __call__(self, duration):
-        """ Runs the simulation for a specified time 'duration'.
-        """
-        logging.debug("Simulating {:g} ns".format(duration / co.nano))
-        for f in self.init_hooks:
-            f(self)
-
-        self.init_time = self.TIME
-        self.end_time  = self.init_time + duration
-
-        while self.TIME < self.end_time - 1e-5 * co.nano:
-            grrr.list_step_n_with_purging(self.dt, 
-                                          self.output_n, 
-                                          self.max_particles,
-                                          self.purge_factor)
-            for f in self.inner_hooks:
-                f(self)
-
-        for f in self.finish_hooks:
-            f(self)
-
         
     def prepare_data(self, tfraction=None):
         """ Prepares the data for the inner hooks, which usually
@@ -167,9 +160,24 @@ class Runner(IOContainer):
         self.tfraction = tfraction
 
 
-    @staticmethod
-    def print_status(sim):
+    def print_status(self):
         logging.info("[{0:.2f} ns]: {1:g} particles ({2:d} superparticles)"\
-                         .format(sim.TIME / co.nano, 
-                                 sim.nparticles,
-                                 sim.nsuper))
+                         .format(self.TIME / co.nano, 
+                                 self.nparticles,
+                                 self.nsuper))
+
+
+
+if __name__ == '__main__':
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("input", help="The input file (.yaml/.json/.h5)")
+    parser.add_argument("-o", "--ofile", 
+                        help="Output file (.h5)",
+                        default=None)
+
+    args = parser.parse_args()
+
+    runner = Runner(args.input, ofile=args.ofile)
+    runner.run()

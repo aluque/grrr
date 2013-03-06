@@ -117,7 +117,6 @@ def set_parameter(name, value, ctype=c_double):
     """
     var = ctype.in_dll(grrr, name)
     var.value = value
-    logging.info("Setting parameter {} = {}".format(name, value))
 
 
 def get_parameter(name, ctype=c_double):
