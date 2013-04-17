@@ -114,14 +114,17 @@ class IOContainer(ParamContainer):
         logging.info("File '{}' open for writing.".format(fname))
 
 
-    def open(self, fname):
+    def open(self, fname, mode='r'):
         """ Opens a file to read."""
-        self.root = h5py.File(fname, "r")
+        self.root = h5py.File(fname, mode)
         self.fname = fname
         self.steps = self.root['steps']
         self.h5_load(self.root)
-        logging.info("File '{}' [{}@{} on {}] open for reading."
+        logging.info("File '{}' open for reading."
                      .format(fname, self._user_, self._host_, self._ctime_))
+        logging.info("This simulation was run by {}@{} on {}."
+                     .format(self._user_, self._host_, self._ctime_))
+        logging.info("The command was '{}'.".format(self._command_))
 
         self.nsteps = self.root.attrs['nsteps']
 
@@ -131,9 +134,11 @@ class IOContainer(ParamContainer):
         gid = "%.5d" % self.itimestep
         
         g = self.steps.create_group(gid)
-        g.attrs['timestamp'] = time.time()
+        g.attrs['_timestamp_'] = time.time()
         g.attrs['TIME'] = self.TIME
         g.attrs['istep'] = self.itimestep
+        g.attrs['particle_weight'] = self.particle_weight()
+        g.attrs['nparticles'] = self.nparticles
 
         for var in self.SAVED_ATTRS:
             value = getattr(self, var)
@@ -154,6 +159,8 @@ class IOContainer(ParamContainer):
         g = self.steps[gid]
         self.TIME = g.attrs['TIME']
         self.istep = g.attrs['istep']
+        self.particle_weight = g.attrs['particle_weight']
+        self.nparticles = g.attrs['nparticles']
 
         for var in self.SAVED_ATTRS:
             value = array(g[var])

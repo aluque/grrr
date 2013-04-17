@@ -346,7 +346,7 @@ emfield_pulse(double t, double *r, double *e, double *b)
   b[Y] = 0.0;
   b[Z] = 0.0;
 
-  e[Z] =  (r[Z] - U0 * t > L || r[Z] - U0 * t < 0)? 0.0: E0;
+  e[Z] =  (r[Z] - U0 * t > L || r[Z] - U0 * t < 0)? E0: EB;
 }
 
 void

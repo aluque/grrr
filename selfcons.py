@@ -13,7 +13,7 @@ logging.basicConfig(format='[%(asctime)s] %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
                     level=logging.DEBUG)
 
-EB =  -15.0 * co.kilo / co.centi
+EB =  -6.0 * co.kilo / co.centi
 BETA = 1 - 0.001182 * 4
 
 
@@ -39,23 +39,17 @@ def main():
     plotter.selfcons_field(runner)
 
     runner.output_n = 4000
-    runner.max_particles = 5000
+    runner.max_particles = 20000
 
     n = 250
     for i in xrange(n):
-        runner(50 * co.nano)
+        runner(10 * co.nano)
 
         tfraction = float(i + 1) / n
 
         runner.prepare_data(tfraction)
         runner.save()
 
-        plotter.phases(runner)
-        plotter.histogram(runner)
-        plotter.selfcons_field(runner)
-
-    plotter.save_all()
-    pylab.show()
 
 
     
