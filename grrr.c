@@ -76,7 +76,7 @@ double FD_CUTOFF = 1000 * MEV;
    of the charge density. */
 #define __NCELLS 32768
 const int NCELLS = __NCELLS;
-const double CELL_DZ = 0.1;
+const double CELL_DZ = 0.25;
 
 /* fixedcharge counts the number of "fixed" charge-carriers inside a cell.
    That includes ions and thermalized electrons, which, for our purposes
