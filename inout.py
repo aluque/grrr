@@ -13,10 +13,6 @@ M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
 M2C4 = MC2**2
 
-logging.basicConfig(format='[%(asctime)s] %(message)s', 
-                    datefmt='%a, %d %b %Y %H:%M:%S',
-                    level=logging.DEBUG)
-
 class IOContainer(ParamContainer):
     SAVED_ATTRS = ['id', 'r', 'p', 'eng', 'zfcells', 'r0', 'p0', 't0', 'tau', 
                    'zccells', 'charge', 'ez', 'nelastic', 'nionizing']

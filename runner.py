@@ -3,6 +3,7 @@
 import sys
 import os
 import logging
+import logger
 
 from numpy import *
 import scipy.constants as co

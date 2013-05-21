@@ -17,6 +17,7 @@ logging.basicConfig(format='[%(asctime)s] %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
                     level=logging.DEBUG)
 
+
 FIGURE_SET = set()
 
 def figure(func):

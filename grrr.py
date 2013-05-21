@@ -2,14 +2,11 @@
 # hard MC computations.  Everything is built around the ctypes 
 # module in the python stdlib.
 import logging
+import logger
 
 from numpy import *
 from ctypes import *
 import scipy.constants as co
-
-logging.basicConfig(format='[%(asctime)s] %(message)s', 
-                    datefmt='%a, %d %b %Y %H:%M:%S',
-                    level=logging.DEBUG)
 
 M = co.electron_mass
 MC2 = co.electron_mass * co.c**2
