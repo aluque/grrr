@@ -306,11 +306,15 @@ def charge_density(return_faces=False):
     faces = linspace(0, ncells * cell_dz, ncells + 1)
     centers = 0.5 * (faces[1:] + faces[:-1])
 
-    c_ndouble = c_double * ncells
-    c_charge =  c_ndouble.in_dll(grrr, 'fixedcharge')
-
     charge = empty((ncells, ))
+
+    c_ndouble = c_double * ncells
+
+    c_charge =  c_ndouble.in_dll(grrr, 'fixedcharge')
     charge[:] = c_charge[:]
+
+    c_charge =  c_ndouble.in_dll(grrr, 'mobilecharge')
+    charge[:] += c_charge[:]
 
     if return_faces:
         return faces, charge
