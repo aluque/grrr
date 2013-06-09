@@ -86,11 +86,11 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 
 #define EPSILON_0 8.854187817620389e-12
 
-/* Atmospheric air density. */
-#define AIR_DENSITY 2.6867805e+25
+/* Density of atoms in atmospheric air. */
+#define AIR_DENSITY (2 * 2.6867805e+25)
 
-/* Average atomic number of air molecules. */
-#define AIR_Z (0.8 * 14 + 0.2 * 16)
+/* Average atomic number of atoms in air molecules. */
+#define AIR_Z (0.8 * 7 + 0.2 * 8)
 
 /* Average ionization energy of air. */
 #define AIR_IONIZATION (85.7 * EV)
@@ -100,8 +100,12 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 
 /* The prefactor in the Coulomg scattering formula. */
 #define COULOMB_PREFACTOR (0.25 * AIR_DENSITY * (AIR_Z * AIR_Z * RE2))
-#define BSTRAHLUNG_A (1.2744e-28)
-#define BSTRAHLUNG_B (-1.0027e-27 * MEV)
+
+/* The bremmstrahlung linear approx.  We divide by two because the
+   calculation assumes that we will multiply by the density of air
+   molecules, but we actually multiply by density of atoms. */
+#define BSTRAHLUNG_A (1.2744e-28 / 2.0)
+#define BSTRAHLUNG_B (-1.0027e-27 * MEV / 2.0)
 
 #define X 0
 #define Y 1

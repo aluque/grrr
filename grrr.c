@@ -70,7 +70,7 @@ double *INTERP_VALUES = NULL;
 int ONLY_PRIMARIES = 0;
 
 /* This is an unphysical cutoff to try to model more easily. */
-double FD_CUTOFF = 1000 * MEV;
+double FD_CUTOFF = 100000 * MEV;
 
 /* We will track the creation/destruction of particles to keep track
    of the charge density. */
