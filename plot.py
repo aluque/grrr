@@ -6,6 +6,7 @@ from numpy import *
 import scipy.constants as co
 import pylab
 from matplotlib import cm
+from matplotlib.colors import LogNorm
 
 from inout import IOContainer, M, MC2
 
@@ -122,6 +123,42 @@ class PlotXY(Plot):
         pylab.ylabel("{} [{}]".format(self.y.name, self.y.units))
 
 
+class PlotXYZ(Plot):
+    """ The class for XYZ scatter plots (Z is the color). """
+    def __init__(self, x, y, z, logz=False, **kwargs):
+        super(PlotXYZ, self).__init__(**kwargs)
+        self.x = x
+        self.y = y
+        self.z = z
+        self.logz = logz
+
+        self.figure = "{} vs {} vs {}".format(x.name, y.name, z.name)
+        self.norm = None
+
+    def update(self, sim):
+        pylab.figure(self.figure)
+        flt = self.combine_filters(sim)
+
+        x = self.x(sim, flt)
+        y = self.y(sim, flt)
+        z = self.z(sim, flt)
+        if self.logz:
+            norm = LogNorm()
+        else:
+            norm = None
+        
+        pylab.scatter(x, y, faceted=False, s=7.0, c=z, norm=norm)
+
+
+    def finish(self):
+        super(PlotXYZ, self).finish()
+        pylab.xlabel("{} [{}]".format(self.x.name, self.x.units))
+        pylab.ylabel("{} [{}]".format(self.y.name, self.y.units))
+
+        cbar = pylab.colorbar()
+        cbar.set_label("{} [{}]".format(self.z.name, self.z.units))
+
+
 class PlotHistogram(Plot):
     """ The class for histogram plots. """
     def __init__(self, x, bins=60, joined=True, **kwargs):
@@ -230,11 +267,16 @@ def iter_steps(s):
 
 def main():
     import argparse
-    def scatter(args):
+    def xy(args):
         return PlotXY(VARIABLES[args.x], VARIABLES[args.y],
                       filters=[FILTERS[f] for f in args.filter],
                       joined=args.joined,
                       logx=args.logx, logy=args.logy)
+
+    def xyz(args):
+        return PlotXYZ(VARIABLES[args.x], VARIABLES[args.y], VARIABLES[args.z],
+                      filters=[FILTERS[f] for f in args.filter],
+                      logx=args.logx, logy=args.logy, logz=args.logz)
 
     def evol(args):
         return PlotEvolution(VARIABLES[args.x], VARIABLES[args.y],
@@ -261,6 +303,8 @@ def main():
                         help="Logarithmic scale on X")
     parser.add_argument("--logy", action='store_true',
                         help="Logarithmic scale on Y")
+    parser.add_argument("--logz", action='store_true',
+                        help="Logarithmic scale on Z")
 
     parser.add_argument("-f", "--filter", 
                         help="Add a particle filter",
@@ -270,13 +314,20 @@ def main():
 
     subparsers = parser.add_subparsers()
     
-    parser_xy = subparsers.add_parser("scatter", help="A XY scatter plot")
+    parser_xy = subparsers.add_parser("xy", help="A XY scatter plot")
     parser_xy.add_argument("x", choices=VARIABLES.keys())
     parser_xy.add_argument("y", choices=VARIABLES.keys())
     parser_xy.add_argument("--joined", 
                            help="Uses lines instead of dots",
                            action='store_true', default=False)
-    parser_xy.set_defaults(func=scatter)
+    parser_xy.set_defaults(func=xy)
+
+    parser_xy = subparsers.add_parser("xyz", help="A XYZ scatter plot")
+    parser_xy.add_argument("x", choices=VARIABLES.keys())
+    parser_xy.add_argument("y", choices=VARIABLES.keys())
+    parser_xy.add_argument("z", choices=VARIABLES.keys())
+    parser_xy.set_defaults(func=xyz)
+
 
     parser_hist = subparsers.add_parser("hist", help="A Histogram")
     parser_hist.add_argument("x", choices=VARIABLES.keys())
@@ -331,6 +382,18 @@ def main():
 def pz(sim):
     return co.c * sim.p[:, 2] / co.eV
 
+
+@variable(name="$p_z/mc$", units="")
+def pzmc(sim):
+    return sim.p[:, 2] / (M * co.c)
+
+@variable(name=r"$\theta_{min}$", units="")
+def thetamin(sim):
+    Z_AIR = (0.8 * 7 + 0.2 * 8)
+    P0 = Z_AIR**(1./3.) / (4 * pi * 183.8)
+
+    return abs(P0 / (sim.p[:, 2] / (M * co.c)))
+
 @variable(name="$p_x$", units="eV/c")
 def px(sim):
     return co.c * sim.p[:, 0] / co.eV
@@ -339,6 +402,30 @@ def px(sim):
 def py(sim):
     return co.c * sim.p[:, 1] / co.eV
 
+@variable(name="$p_{0z}$", units="eV/c")
+def p0z(sim):
+    return co.c * sim.p0[:, 2] / co.eV
+
+@variable(name="$p_{0x}$", units="eV/c")
+def p0x(sim):
+    return co.c * sim.p0[:, 0] / co.eV
+
+@variable(name="$p_{0y}$", units="eV/c")
+def p0y(sim):
+    return co.c * sim.p0[:, 1] / co.eV
+
+@variable(name="$\Delta p_z$", units="eV/c")
+def dpz(sim):
+    return pz(sim) - p0z(sim)
+
+@variable(name="$\Delta p_x$", units="eV/c")
+def dpx(sim):
+    return px(sim) - p0x(sim)
+
+@variable(name="$\Delta p_y$", units="eV/c")
+def dpy(sim):
+    return py(sim) - p0y(sim)
+
 @variable(name="$z$", units="m")
 def z(sim):
     return sim.r[:, 2]
@@ -346,6 +433,18 @@ def z(sim):
 @variable(name="$\Delta z$", units="m")
 def dz(sim):
     return sim.r[:, 2] - sim.r0[:, 2]
+
+@variable(name=r"$\theta$", units="")
+def theta(sim):
+    return arctan2(sqrt(sim.p[:, 0]**2 + sim.p[:, 1]**2), sim.p[:, 2])
+
+@variable(name=r"$\theta_0$", units="")
+def theta0(sim):
+    return arctan2(sqrt(sim.p0[:, 0]**2 + sim.p0[:, 1]**2), sim.p0[:, 2])
+
+@variable(name=r"$\Delta\theta$", units="")
+def dtheta(sim):
+    return theta(sim) - theta0(sim)
 
 @variable(name="$x$", units="m")
 def x(sim):
@@ -359,13 +458,29 @@ def y(sim):
 def gamma(sim):
     return sqrt(1 + sum(sim.p**2, axis=1) / (M * MC2))
 
+@variable(name="$\gamma_0$", units="")
+def gamma0(sim):
+    return sqrt(1 + sum(sim.p0**2, axis=1) / (M * MC2))
+
 @variable(name=r"$\beta_z$", units="")
 def betaz(sim):
     return sim.p[:, 2] / gamma(sim) / (M * co.c)
 
+@variable(name=r"$\beta_z-\beta_{bulk}$", units="")
+def dbetaz(sim):
+    return betaz(sim) - sim.U0 / co.c
+
 @variable(name=r"$\beta_x$", units="")
 def betax(sim):
     return sim.p[:, 0] / gamma(sim) / (M * co.c)
+
+@variable(name=r"$\beta_{0z}$", units="")
+def beta0z(sim):
+    return sim.p0[:, 2] / gamma0(sim) / (M * co.c)
+
+@variable(name=r"$\beta_{0x}$", units="")
+def beta0x(sim):
+    return sim.p0[:, 0] / gamma0(sim) / (M * co.c)
 
 @variable(name="$p^2$", units="(eV/c)$^\mathdefault{2}$")
 def p2(sim):
@@ -377,15 +492,32 @@ def pabs(sim):
 
 @variable(name="$z - ut$", units="m")
 def xi(sim):
-    return sim.r[:, 2] - sim.U0 * sim.TIME - sim.init_particle_z
+    return sim.r[:, 2] - sim.U0 * sim.TIME  # - sim.init_particle_z
 
-@variable(name="$z_0 - ut$", units="m")
+@variable(name="$z_0 - ut_0$", units="m")
 def xi0(sim):
     return sim.r0[:, 2] - sim.U0 * sim.t0
+
+@variable(name="$-\Delta xi$", units="m")
+def dxi(sim):
+    return xi0(sim) - xi(sim)
+
+@variable(name="$z - z_{bulk}$", units="m")
+def xi_centroid(sim):
+    return sim.r[:, 2] - sim.centroid()[2]
 
 @variable(name="$K$", units="eV")
 def energy(sim):
     return sim.eng / co.eV
+
+@variable(name="$\rangle F \langle$", units="eV/m")
+def average_force(sim):
+    dp = sqrt(sum(sim.p**2, axis=1)) - sqrt(sum(sim.p0**2, axis=1))
+    return (dp / (sim.TIME - sim.t0)) / co.eV
+
+@variable(name="$K_0$", units="eV")
+def energy0(sim):
+    return sim.eng0 / co.eV
 
 @variable(name="$t_0$", units="ns")
 def t0(sim):
@@ -413,7 +545,7 @@ def charge(sim):
 
 @variable(name=r"$\xi$", units="m")
 def xif(sim):
-    return sim.zfcells - sim.TIME * sim.U0 - sim.init_particle_z
+    return sim.zfcells - sim.TIME * sim.U0 # - sim.init_particle_z
 
 @variable(name="$E$", units="kV/cm")
 def field(sim):
@@ -439,6 +571,13 @@ def xicentroid(sim):
 def shifted_centroid(sim):
     return sim.centroid()[2] - sim.init_particle_z
 
+@variable(name="#elastic", units="")
+def nelastic(sim):
+    return sim.nelastic
+
+@variable(name="#ionizing", units="")
+def nionizing(sim):
+    return sim.nionizing
 
 # These are Lorentz-transformed quantities to the co-moving frame.
 @variable(name=r"$z'$", units="m")
