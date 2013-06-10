@@ -1123,16 +1123,25 @@ elastic_collision(particle_t *part, double dt, double *theta)
 /* Checks if the particle undergoes an elastic collision dirung dt.
    If it does, return the theta of the collision (i.e. the change in
    the direction of p. 
-   Starting from Mon Jun 10 12:56:08 2013, I divide the cross sections
-   in two rectangular sectors with areas M and  1-M so that I can use
-   MC sampling even if the cross-section peaks strongly for small theta
+   Starting from Sun Jun  9 20:30:38 2013, To allow MC sampling
+   with a reasonable dt, we must avoid very small-angle scattering.
+   In air with energies 100 MeV I get around 10^18 small-angle
+   scatterings per second.  With these numbers it's unrealistic
+   to simulate even 100 ns.  Dwyer claims to do it but I am now doubting
+   it; possibly he made the same mistake as I did believing that a
+   cutoff at low angles was not so important.  However, many
+   small things may add to something significant and small-angle
+   scattering contributes a factor ~log(p) to the diffusion.
+   Long story short: we here sample only scatterings larger than
+   M * theta_min, where M ~= 100 and theta_min = p0 / p << 1.
+   [M = COULOMB_M]
 */
 {
   /* TODO: We have already calculated these things for the same
      particle.  Do not repeat calculations! */
 
   double p2, gamma2, gamma, beta2, v;
-  double pmax, pprime, rtheta, P, W, theta_min, r, theta_t, ptheta_t;
+  double rtheta, P, W, theta_min, r, theta_t, ptheta_t;
 
   p2 = NORM2(part->p);
   gamma2 = 1. + p2 / (MC2 * M);
@@ -1141,42 +1150,26 @@ elastic_collision(particle_t *part, double dt, double *theta)
   v = C * sqrt(beta2);
   theta_min = sqrt(COULOMB_P02 / p2);
 
-  /* The max probability is always at theta_min * sqrt(3) */
-  pmax = v * dt * coulomb_differential(gamma2, beta2, p2, theta_min * sqrt(3.));
-  theta_t = COULOMB_M / pmax;
-  pprime = (1. - COULOMB_M) / (PI - theta_t);
+  theta_t = COULOMB_M * theta_min;
+  if (theta_t >= PI) {
+    /* All collisions are accounted for by the diffusion term this only
+       happens for very low energies. */
+    return 0;
+  }
+
   ptheta_t = v * dt * coulomb_differential(gamma2, beta2, p2, theta_t);
-
-  if (theta_t < theta_min) {
-    fprintf(stderr, "%s: theta_t < theta_min in elastic_collision.\n", 
+  if (ptheta_t > 1.0 / (PI - theta_t)) {
+    fprintf(stderr, "%s: elastic_collision: ptheta_t > 1 / (PI - theta_t).\n", 
 	    invok_name);
-    fprintf(stderr, "%s: (theta_t, theta_min) = (%g, %g); p = %g eV/c\n", 
-	    invok_name, theta_t, theta_min, sqrt(p2) * C / EV);
+    fprintf(stderr, "%s: ptheta_t = %g, p = %g eV/c\n", 
+	    invok_name, ptheta_t, sqrt(p2) * C / EV);
     fprintf(stderr, "%s: Probably this means that your dt is too large.\n",
 	    invok_name);
     exit(-1);
   }
 
-  if (ptheta_t > pprime) {
-    fprintf(stderr, "%s: ptheta_t > pprime in elastic_collision.\n", 
-	    invok_name);
-    fprintf(stderr, "%s: (ptheta_t, pprime) = (%g, %g); theta_t = %g, "
-	    "pmax = %g, p = %g eV/c\n", 
-	    invok_name, ptheta_t, pprime, theta_t, pmax, sqrt(p2) * C / EV);
-    fprintf(stderr, "%s: Probably this means that your dt is too large.\n",
-	    invok_name);
-    exit(-1);
-  }
-
-  r = rand() / RAND_MAX;
-  if (r <= COULOMB_M) {
-    /* We are sampling from the small-angle distribution. */
-    rtheta = theta_t * rand() / RAND_MAX;
-    W = pmax * rand() / RAND_MAX;
-  } else {
-    rtheta = theta_t + (PI - theta_t) * rand() / RAND_MAX;
-    W = pprime * rand() / RAND_MAX;
-  }
+  rtheta = theta_t + (PI - theta_t) * ranf();
+  W = ranf() / (PI - theta_t);
 
   P = v * dt * coulomb_differential(gamma2, beta2, p2, rtheta);
 
@@ -1189,6 +1182,32 @@ elastic_collision(particle_t *part, double dt, double *theta)
   }
 }
 
+void
+elastic_diffusion(particle_t *part, double dt, double *theta)
+/* Takes into account the many small-angle scattering collisions
+   to calculate a total, gaussian theta.  See elastic_collision
+   above for an explanation on why we separate small-angle and
+   large angle collisions into to terms.
+   Here we consider the many collisions with theta < M * theta_min.
+   Since theta_min << PI, here we considered sin(theta) = theta. */
+{
+  /* TODO: We have already calculated these things for the same
+     particle.  Do not repeat calculations! */
+
+  double p2, gamma2, gamma, beta2, v;
+  double dtheta2;
+
+  p2 = NORM2(part->p);
+  gamma2 = 1. + p2 / (MC2 * M);
+  gamma = sqrt(gamma2);
+  beta2 = 1 - 1 / gamma2;
+  v = C * sqrt(beta2);
+
+  dtheta2 = (v * dt * 16 * PI * COULOMB_PREFACTOR / gamma2 / (beta2 * beta2)
+	     * log(COULOMB_M));
+
+  *theta = rnd_gauss(0.0, sqrt(dtheta2));
+}
 
 particle_t *
 timestep(particle_t *part, double t, double dt)
@@ -1282,6 +1301,11 @@ perform_elastic_collision(particle_t *part, double dt)
     elastic_momentum(part->p, theta, part->p);
     part->nelastic++;
   }
+  
+  /* We always add an equivalent "elastic collision" that accounts for the
+     many small-angle scatterings during dt. */
+  elastic_diffusion(part, dt, &theta);
+  elastic_momentum(part->p, theta, part->p);
 }
 
 

@@ -79,7 +79,7 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define COULOMB_B (0.25 * HBAR2 / COULOMB_A2)
 #define COULOMB_P02  (HBAR2 / COULOMB_A2)
 #define COULOMB_P0 (sqrt(COULOMB_P02))
-#define COULOMB_M 0.9
+#define COULOMB_M 1000
 
 /* Elementary charge and eV, keV, MeV. */
 #define ELEMENTARY_CHARGE 1.602176565e-19
@@ -161,6 +161,8 @@ particle_t *rkstep(particle_t *plist0, particle_t *plist1, double rkfactor);
 void drop_thermal(void);
 int ionizing_collision(particle_t *part, double dt, double *K1, double *K2);
 int elastic_collision(particle_t *part, double dt, double *theta);
+void elastic_diffusion(particle_t *part, double dt, double *theta);
+
 void ionizing_momenta(const double *p, double K1, double K2, 
 		      double *p1, double *p2);
 void elastic_momentum(double *p, double theta, double *pnew);
