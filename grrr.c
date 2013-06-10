@@ -25,6 +25,8 @@ static double moller_differential(double gamma, double gamma2, double beta2,
 static double coulomb_differential(double gamma2, double beta2, double p2, 
 				   double rtheta);
 static void particle_track_charge(particle_t *part, int change);
+static double rnd_gauss(double mu, double sigma);
+static double ranf (void);
 
 /* Several pre-defined em fields. */
 void emfield_static    (double t, double *r, double *e, double *b);
@@ -1120,30 +1122,63 @@ int
 elastic_collision(particle_t *part, double dt, double *theta)
 /* Checks if the particle undergoes an elastic collision dirung dt.
    If it does, return the theta of the collision (i.e. the change in
-   the direction of p. */
+   the direction of p. 
+   Starting from Mon Jun 10 12:56:08 2013, I divide the cross sections
+   in two rectangular sectors with areas M and  1-M so that I can use
+   MC sampling even if the cross-section peaks strongly for small theta
+*/
 {
   /* TODO: We have already calculated these things for the same
      particle.  Do not repeat calculations! */
 
   double p2, gamma2, gamma, beta2, v;
-  double pmax, rtheta, P, W;
+  double pmax, pprime, rtheta, P, W, theta_min, r, theta_t, ptheta_t;
 
   p2 = NORM2(part->p);
   gamma2 = 1. + p2 / (MC2 * M);
   gamma = sqrt(gamma2);
   beta2 = 1 - 1 / gamma2;
   v = C * sqrt(beta2);
-  
-  rtheta = PI * rand() / RAND_MAX;
-  W = rand() / PI / RAND_MAX;
+  theta_min = sqrt(COULOMB_P02 / p2);
 
-  P    = v * dt * coulomb_differential(gamma2, beta2, p2, rtheta);
-  pmax = v * dt * coulomb_differential(gamma2, beta2, p2, 0.0);
+  /* The max probability is always at theta_min * sqrt(3) */
+  pmax = v * dt * coulomb_differential(gamma2, beta2, p2, theta_min * sqrt(3.));
+  theta_t = COULOMB_M / pmax;
+  pprime = (1. - COULOMB_M) / (PI - theta_t);
+  ptheta_t = v * dt * coulomb_differential(gamma2, beta2, p2, theta_t);
 
-  if(pmax > 1.0 / PI) {
-    fprintf(stderr, "%s: error: pmax > 1 / PI\n", invok_name);
-    fprintf(stderr, "max(P) = %g\n", pmax);
+  if (theta_t < theta_min) {
+    fprintf(stderr, "%s: theta_t < theta_min in elastic_collision.\n", 
+	    invok_name);
+    fprintf(stderr, "%s: (theta_t, theta_min) = (%g, %g); p = %g eV/c\n", 
+	    invok_name, theta_t, theta_min, sqrt(p2) * C / EV);
+    fprintf(stderr, "%s: Probably this means that your dt is too large.\n",
+	    invok_name);
+    exit(-1);
   }
+
+  if (ptheta_t > pprime) {
+    fprintf(stderr, "%s: ptheta_t > pprime in elastic_collision.\n", 
+	    invok_name);
+    fprintf(stderr, "%s: (ptheta_t, pprime) = (%g, %g); theta_t = %g, "
+	    "pmax = %g, p = %g eV/c\n", 
+	    invok_name, ptheta_t, pprime, theta_t, pmax, sqrt(p2) * C / EV);
+    fprintf(stderr, "%s: Probably this means that your dt is too large.\n",
+	    invok_name);
+    exit(-1);
+  }
+
+  r = rand() / RAND_MAX;
+  if (r <= COULOMB_M) {
+    /* We are sampling from the small-angle distribution. */
+    rtheta = theta_t * rand() / RAND_MAX;
+    W = pmax * rand() / RAND_MAX;
+  } else {
+    rtheta = theta_t + (PI - theta_t) * rand() / RAND_MAX;
+    W = pprime * rand() / RAND_MAX;
+  }
+
+  P = v * dt * coulomb_differential(gamma2, beta2, p2, rtheta);
 
   if (W > P) {
     /* No collision. */
@@ -1362,4 +1397,46 @@ list_dump(char *fname)
   
   fclose(fp);
 }  
+
+
+/* Returns a random number with a gaussian distribution centered around
+   mu with width sigma. */
+static double
+rnd_gauss(double mu, double sigma)
+{
+  double x1, x2, w;
+  static double y1, y2;
+  static int has_more = FALSE;
+
+  
+  if (has_more) {
+    has_more = FALSE;
+    return mu + y2 * sigma;
+  }
+
+   
+  do {
+    x1 = 2.0 * ranf() - 1.0;
+    x2 = 2.0 * ranf() - 1.0;
+    w = x1 * x1 + x2 * x2;
+  } while (w >= 1.0);
+  
+  w = sqrt ((-2.0 * log (w)) / w);
+  y1 = x1 * w;
+  y2 = x2 * w;
+
+  has_more = TRUE;
+
+  return mu + y1 * sigma;
+}
+
+
+#define AM (1.0 / RAND_MAX)
+
+/* Returns a random number uniformly distributed in [0, 1] */
+static double
+ranf (void)
+{
+  return rand() * AM;
+}
   

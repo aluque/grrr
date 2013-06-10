@@ -77,6 +77,9 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define COULOMB_A (183.8 * COMPTON_WAVELENGTH * pow(AIR_Z, -1.0 / 3.0))
 #define COULOMB_A2 (COULOMB_A * COULOMB_A)
 #define COULOMB_B (0.25 * HBAR2 / COULOMB_A2)
+#define COULOMB_P02  (HBAR2 / COULOMB_A2)
+#define COULOMB_P0 (sqrt(COULOMB_P02))
+#define COULOMB_M 0.9
 
 /* Elementary charge and eV, keV, MeV. */
 #define ELEMENTARY_CHARGE 1.602176565e-19
