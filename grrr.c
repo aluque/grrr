@@ -637,10 +637,11 @@ bremsstrahlung_fd(double gamma)
    For lower energies Bremsstrahlung is anyway negligible against
    collisional stopping. */
 {
-  double K;
+  double K, fd;
 
   K = MC2 * (gamma - 1);
-  return AIR_DENSITY * (BSTRAHLUNG_A * K + BSTRAHLUNG_B);
+  fd = AIR_DENSITY * (BSTRAHLUNG_A * K + BSTRAHLUNG_B);
+  return (fd > 0)? fd: 0;
 }
 
 

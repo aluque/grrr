@@ -59,11 +59,13 @@ def filter(**kwargs):
 class Plot(object):
     """ This is an abstract class for plotting commands.  You have to
     sub-class this if you want useful functionality. """
-    def __init__(self, filters=[], logx=False, logy=False):
+    def __init__(self, filters=[], logx=False, logy=False,
+                 makefig=True):
         self.color = 'k'
         self.filters = filters
         self.logx = logx
         self.logy = logy
+        self.makefig = makefig
 
     def init(self):
         pass
@@ -105,16 +107,19 @@ class PlotXY(Plot):
 
 
     def update(self, sim):
-        pylab.figure(self.figure)
+        if self.makefig:
+            pylab.figure(self.figure)
         self.set_color(sim)
         flt = self.combine_filters(sim)
 
         x = self.x(sim, flt)
         y = self.y(sim, flt)
         if not self.joined:
-            pylab.plot(x, y, 'o', c=self.color, mew=0, ms=2.0)
+            pylab.plot(x, y, 'o', c=self.color, mew=0, mec=self.color,
+                       ms=2.0, zorder=10)
         else:
-            pylab.plot(x, y, lw=1.5, c=self.color)
+            pylab.plot(x, y, lw=1.5, c=self.color, 
+                       zorder=10)
 
 
     def finish(self):
@@ -136,7 +141,9 @@ class PlotXYZ(Plot):
         self.norm = None
 
     def update(self, sim):
-        pylab.figure(self.figure)
+        if self.makefig:
+            pylab.figure(self.figure)
+
         flt = self.combine_filters(sim)
 
         x = self.x(sim, flt)
@@ -170,7 +177,9 @@ class PlotHistogram(Plot):
 
 
     def update(self, sim):
-        pylab.figure(self.figure)
+        if self.makefig:
+            pylab.figure(self.figure)
+
         self.set_color(sim)
         flt = self.combine_filters(sim)
 
@@ -221,7 +230,9 @@ class PlotEvolution(Plot):
 
 
     def update(self, sim):
-        pylab.figure(self.figure)
+        if self.makefig:
+            pylab.figure(self.figure)
+
         flt = self.combine_filters(sim)
         
         x = self.xfunc(self.x(sim, flt))
@@ -530,6 +541,10 @@ def tau(sim):
 @variable(name="$t - t_0$", units="ns")
 def age(sim):
     return (sim.TIME - sim.t0) / co.nano
+
+@variable(name="$z - z_0$", units="m")
+def deltaz(sim):
+    return (sim.r[:, 2] - sim.r0[:, 2])
 
 @variable(name="$z$", units="m")
 def zf(sim):
