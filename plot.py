@@ -594,6 +594,10 @@ def nelastic(sim):
 def nionizing(sim):
     return sim.nionizing
 
+@variable(name=r"$\langle \beta_z \rangle$", units="")
+def average_betaz(sim):
+    return average(sim.p[:, 2] / gamma(sim) / (M * co.c))
+
 # These are Lorentz-transformed quantities to the co-moving frame.
 @variable(name=r"$z'$", units="m")
 def zprime(sim):
