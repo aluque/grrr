@@ -28,7 +28,7 @@ def variable(**kwargs):
     """ A decorator to define variables from functions. """
     def deco(f):
         kwargs.update({'doc': f.__doc__})
-        VARIABLES[f.func_name] = Variable(f, **kwargs)
+        VARIABLES[f.__name__] = Variable(f, **kwargs)
         return f
     return deco
 
@@ -50,7 +50,7 @@ def filter(**kwargs):
         try:
             FILTERS[kwargs['name']] = Filter(f, **kwargs)
         except KeyError:
-            FILTERS[f.func_name] = Filter(f, **kwargs)
+            FILTERS[f.__name__] = Filter(f, **kwargs)
 
         return f
     return deco
@@ -271,7 +271,7 @@ def iter_steps(s):
         step = 1
 
     ifro, ito, istep = int(fro), int(to), int(step)
-    for i in xrange(ifro, ito, istep):
+    for i in range(ifro, ito, istep):
         yield ("%.*d" % (l, i))
 
 
@@ -320,28 +320,28 @@ def main():
     parser.add_argument("-f", "--filter", 
                         help="Add a particle filter",
                         action='append', default=[], 
-                        choices=FILTERS.keys())
+                        choices=list(FILTERS.keys()))
 
 
     subparsers = parser.add_subparsers()
     
     parser_xy = subparsers.add_parser("xy", help="A XY scatter plot")
-    parser_xy.add_argument("x", choices=VARIABLES.keys())
-    parser_xy.add_argument("y", choices=VARIABLES.keys())
+    parser_xy.add_argument("x", choices=list(VARIABLES.keys()))
+    parser_xy.add_argument("y", choices=list(VARIABLES.keys()))
     parser_xy.add_argument("--joined", 
                            help="Uses lines instead of dots",
                            action='store_true', default=False)
     parser_xy.set_defaults(func=xy)
 
     parser_xy = subparsers.add_parser("xyz", help="A XYZ scatter plot")
-    parser_xy.add_argument("x", choices=VARIABLES.keys())
-    parser_xy.add_argument("y", choices=VARIABLES.keys())
-    parser_xy.add_argument("z", choices=VARIABLES.keys())
+    parser_xy.add_argument("x", choices=list(VARIABLES.keys()))
+    parser_xy.add_argument("y", choices=list(VARIABLES.keys()))
+    parser_xy.add_argument("z", choices=list(VARIABLES.keys()))
     parser_xy.set_defaults(func=xyz)
 
 
     parser_hist = subparsers.add_parser("hist", help="A Histogram")
-    parser_hist.add_argument("x", choices=VARIABLES.keys())
+    parser_hist.add_argument("x", choices=list(VARIABLES.keys()))
     parser_hist.add_argument("--joined", 
                              help="Join the histogram points with lines",
                              action='store_true', default=False)
@@ -352,8 +352,8 @@ def main():
 
 
     parser_evol = subparsers.add_parser("evol", help="An evolution plot")
-    parser_evol.add_argument("x", choices=VARIABLES.keys())
-    parser_evol.add_argument("y", choices=VARIABLES.keys())
+    parser_evol.add_argument("x", choices=list(VARIABLES.keys()))
+    parser_evol.add_argument("y", choices=list(VARIABLES.keys()))
     parser_evol.add_argument("--xfunc", choices=['avg', 'min', 'max', 'std',
                                                  'len'],
                              default=None)

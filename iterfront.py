@@ -52,7 +52,7 @@ def main():
     runner.output_n = 1000
     runner.max_particles = 5000
 
-    for i in xrange(n):
+    for i in range(n):
         runner(10 * co.nano)
 
         growth, b = simple_regression(counter.t[-10:], log(counter.n[-10:]))

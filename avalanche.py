@@ -34,7 +34,7 @@ def main():
 
         a, b = simple_regression(z, log(n))
         L[i] = 1 / a
-        print("L = {} m".format(1 / a))
+        print(("L = {} m".format(1 / a)))
 
     savetxt("avalanche_lengths.dat", c_[-EB / (co.kilo / co.centi), L]) 
     pylab.plot(-EB / (co.kilo / co.centi), L, 'o')

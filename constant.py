@@ -45,7 +45,7 @@ def main():
     runner.max_particles = 5000
 
     n = 250
-    for i in xrange(n):
+    for i in range(n):
         runner(50 * co.nano)
 
         tfraction = float(i + 1) / n

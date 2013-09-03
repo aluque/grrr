@@ -67,9 +67,9 @@ def run(start_t=0, init_hooks=[], inner_hooks=[], finish_hooks=[]):
         t = grrr.list_step_n_with_purging(t, dt, output_n, max_particles,
                                           purge_factor)
 
-        print("[{0:.2f} ns]: {1:d} particles ({2:g} weighted)"\
+        print(("[{0:.2f} ns]: {1:d} particles ({2:g} weighted)"\
                   .format(t / co.nano, grrr.particle_count.value,
-                          grrr.particle_weight() * grrr.particle_count.value))
+                          grrr.particle_weight() * grrr.particle_count.value)))
         for f in inner_hooks:
             f(t, final_t)
 
@@ -149,7 +149,7 @@ def output(t, final_t):
     pylab.plot(am[flt], h[flt], 'o', mew=0, ms=4, c=color)
 
     pl, _ = fitpl.fitpl(am[flt], h[flt], p0=array([1e-6, -1.0, 7.5e6 * co.eV]))
-    print("alpha = {1:.4g}; cutoff = {2:.3g} eV".format(*pl))
+    print(("alpha = {1:.4g}; cutoff = {2:.3g} eV".format(*pl)))
 
     pylab.plot(am[flt], fitpl.applypl(pl, am[flt]), c=color, alpha=0.3, lw=3.0)
     fdist.write("{0:g} {1:.4g} {2:.3g} {3:g}\n"\

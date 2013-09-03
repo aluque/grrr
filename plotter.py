@@ -22,9 +22,9 @@ FIGURE_SET = set()
 
 def figure(func):
     def _f(*args, **kwargs):
-        pylab.figure(func.func_name)
-        FIGURE_SET.add(func.func_name)
-        logging.debug("Updating figure '{}'".format(func.func_name))
+        pylab.figure(func.__name__)
+        FIGURE_SET.add(func.__name__)
+        logging.debug("Updating figure '{}'".format(func.__name__))
         func(*args, **kwargs)
 
     _f.__doc__ = func.__doc__
@@ -365,8 +365,8 @@ def primary_pz(sim, tfraction=None):
     #dpz = max(sim.p[sim.t0 == 0, 2]) - sim.p[sim.t0 == 0, 2]
     pz = co.c * sim.p[sim.t0 == 0, 2] / co.eV
 
-    print("Distribution of pz: avg = {:g}, var = {:g}, std = {:g}"
-          .format(average(pz), var(pz), std(pz)))
+    print(("Distribution of pz: avg = {:g}, var = {:g}, std = {:g}"
+          .format(average(pz), var(pz), std(pz))))
 
     bins = linspace(nanmin(pz), nanmax(pz), 100)
     h, a = numpy_histogram(pz, bins=bins, density=True)
@@ -786,9 +786,9 @@ def front_location(front):
     K = co.electron_mass * co.c**2 * (gamma - 1)
 
     pylab.plot(front[:, 0] / co.nano, u * front[:, 0] + b, lw=2.0, c='k')
-    print("Front velocity u = {:g} m/s \n"
+    print(("Front velocity u = {:g} m/s \n"
           "\t[c - u = {:g} m/s, beta = {}, 1 - beta = {}, K(u) = {:g} eV]"
-          .format(u, co.c - u, beta, 1 - beta, K / co.eV))
+          .format(u, co.c - u, beta, 1 - beta, K / co.eV)))
 
 
     pylab.xlabel('Time [ns]')

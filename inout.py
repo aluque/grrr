@@ -201,5 +201,5 @@ class IOContainer(ParamContainer):
 
     def __iter__(self):
         """ Allows us to iterate over the saved timesteps of the object. """
-        for gid in self.steps.keys():
+        for gid in list(self.steps.keys()):
             yield gid

@@ -166,7 +166,7 @@ def iter_particles():
     ppart = particle_head
     while ppart:
         yield ppart.contents
-        ppart = ppart.contents.next
+        ppart = ppart.contents.__next__
 
 
 def particles_r():
