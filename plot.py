@@ -114,6 +114,9 @@ class PlotXY(Plot):
 
         x = self.x(sim, flt)
         y = self.y(sim, flt)
+
+        x, y = congruent(x, y)
+
         if not self.joined:
             pylab.plot(x, y, 'o', c=self.color, mew=0, mec=self.color,
                        ms=2.0, zorder=10)
@@ -383,6 +386,22 @@ def main():
     pylab.show()
 
     
+def congruent(x, y):
+    """ Makes two variables congruent, i.e. if they are both vectors does
+    nothing but it transforms (scalar, vector) or (vector, scalar) to 
+    (vector, vector). """
+    
+    if not isscalar(x) and not isscalar(y):
+        return x, y
+
+    if isscalar(x) and not isscalar(y):
+        return x + zeros_like(y), y
+
+    if not isscalar(x) and isscalar(y):
+        return x, y + zeros_like(x)
+
+    # if both are scalar we also do nothing.
+    return x, y
 
 
 
@@ -504,6 +523,10 @@ def pabs(sim):
 @variable(name="$z - ut$", units="m")
 def xi(sim):
     return sim.r[:, 2] - sim.U0 * sim.TIME  # - sim.init_particle_z
+
+@variable(name="$z - ct$", units="m")
+def zct(sim):
+    return sim.r[:, 2] - co.c * sim.TIME - sim.init_particle_z
 
 @variable(name="$z_0 - ut_0$", units="m")
 def xi0(sim):
