@@ -484,6 +484,10 @@ def x(sim):
 def y(sim):
     return sim.r[:, 1]
 
+@variable(name="$r$", units="m")
+def r(sim):
+    return sqrt(sum(sim.r[:, (0, 1)]**2, axis=1))
+
 @variable(name="$\gamma$", units="")
 def gamma(sim):
     return sqrt(1 + sum(sim.p**2, axis=1) / (M * MC2))
@@ -503,6 +507,10 @@ def dbetaz(sim):
 @variable(name=r"$\beta_x$", units="")
 def betax(sim):
     return sim.p[:, 0] / gamma(sim) / (M * co.c)
+
+@variable(name=r"$\beta_y$", units="")
+def betay(sim):
+    return sim.p[:, 1] / gamma(sim) / (M * co.c)
 
 @variable(name=r"$\beta_{0z}$", units="")
 def beta0z(sim):
