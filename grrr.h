@@ -33,7 +33,10 @@ typedef struct particle_t {
      r and p of particles. */
   double t0, r0[3], p0[3];
 
-
+  /* We store the particle's position and momentum on crossing the wall. */
+  double tw, rw[3], pw[3];
+  int locked;
+  
   /* At some point, I also find useful to cound the number of collision
      that each particle has undergone. */
   int nelastic, nionizing;

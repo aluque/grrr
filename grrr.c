@@ -65,6 +65,8 @@ double B0 = 20e-6;
 double KTH = 0.01 * MEV;
 double GAMMATH;
 double L = 3.0;
+double Z_WALL = 1;
+
 int NINTERP = 0;
 double *INTERP_VALUES = NULL;
 
@@ -870,14 +872,35 @@ rk4(double t, double dt)
 	part1 = part1->next, 
 	part2 = part2->next, 
 	part3 = part3->next) {
+    double dr[3], dp[3], s;
 
     for (i = 0; i < 3; i++) {
-      part->r[i] = (part->r[i] + part->dr[i] / 6 + part1->dr[i] / 3 + 
-		    part2->dr[i] / 3 + part3->dr[i] / 6);
-
-      part->p[i] = (part->p[i] + part->dp[i] / 6 + part1->dp[i] / 3 + 
-		    part2->dp[i] / 3 + part3->dp[i] / 6);
+      dr[i] = (part->dr[i] / 6 + part1->dr[i] / 3 +
+	       part2->dr[i] / 3 + part3->dr[i] / 6);
+      
+      dp[i] = (part->dp[i] / 6 + part1->dp[i] / 3 + 
+	       part2->dp[i] / 3 + part3->dp[i] / 6);
     }
+
+    /* We use two loops in the index in order to find the wall intersections. */
+    
+    s = (Z_WALL - part->r[2]) / dr[3];
+    
+    for (i = 0; i < 3; i++) {
+      if (s > 0.0 && s <= 1.0) {
+	part->rw[i] = part->r[i] + dr[i] * s;
+	part->pw[i] = part->p[i] + dp[i] * s;
+      }
+
+      part->r[i] += dr[i];
+      part->p[i] += dp[i];
+      
+    }
+    if (part->rw[2] =! 0) {
+      part->locked = TRUE;
+      part->tw = t + s * dt;
+    }
+    
     part->tau = (part->tau + part->dtau / 6 + part1->dtau / 3 + 
 		 part2->dtau / 3 + part3->dtau / 6);
 
@@ -938,7 +961,7 @@ drop_thermal(void)
 
   for (part = particle_head; part; part = newpart) {
     newpart = part->next;
-    if (part->thermal) {
+    if (part->thermal && !part->locked) {
       particle_delete(part, TRUE);
     }
   }
