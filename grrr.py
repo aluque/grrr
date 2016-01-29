@@ -47,14 +47,21 @@ PARTICLE._fields_ = [('ptype', c_int),
                      ('t0', c_double),
                      ('r0', c_double *3),
                      ('p0', c_double *3),
-                     ('tw', c_double),
-                     ('rw', c_double *3),
-                     ('pw', c_double *3),
-                     ('locked', c_int),
                      ('nelastic', c_int),
                      ('nionizing', c_int),
                      ('prev', POINTER(PARTICLE)),
                      ('next', POINTER(PARTICLE))]
+
+class CROSSING(Structure):
+    pass
+
+CROSSING._fields_ = [('ptype', c_int),
+                     ('id', c_int),
+                     ('t', c_double),
+                     ('r', c_double * 3),
+                     ('p', c_double * 3),
+                     ('next', POINTER(CROSSING))]
+
 
 # Definition of the argument types to the exported functions
 grrr.particle_init.argtypes = [c_int]
@@ -102,6 +109,9 @@ particle_head = POINTER(PARTICLE).in_dll(grrr, 'particle_head')
 particle_tail = POINTER(PARTICLE).in_dll(grrr, 'particle_tail')
 particle_count = c_int.in_dll(grrr, 'particle_count')
 
+# And the list of crossings
+crossing_head = POINTER(CROSSING).in_dll(grrr, 'crossing_head')
+crossing_count = c_int.in_dll(grrr, 'crossing_count')
 t = 0
 
 emfield_func = c_emfunc_p.in_dll(grrr, 'emfield_func')
@@ -344,3 +354,40 @@ def selfcons_field(return_faces=False):
     else:
         return centers, ez
 
+
+def iter_crossings():
+    """ Iterate over all the crossings. """
+    pcross = crossing_head
+    while pcross:
+        yield pcross.contents
+        pcross = pcross.contents.next
+
+
+def crossings_r():
+    """ Returns an array with shape (NCROSSINGS, 3) with all the crossing
+    locations. """
+    r = empty((crossing_count.value, 3))
+    for i, cross in enumerate(iter_crossings()):
+        r[i, :] = cross.r[:]
+
+    return r
+
+
+def crossings_p():
+    """ Returns an array with shape (NCROSSINGS, 3) with all the crossing
+    momenta. """
+    p = empty((crossing_count.value, 3))
+    for i, cross in enumerate(iter_crossings()):
+        p[i, :] = cross.p[:]
+
+    return p
+
+
+def crossings_t():
+    """ Returns an array with shape (NCROSSINGS,) with the creation time
+    of each crossing. """
+    b = empty((crossing_count.value))
+    for i, cross in enumerate(iter_crossings()):
+        b[i] = cross.t
+
+    return b

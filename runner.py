@@ -70,6 +70,12 @@ class Runner(IOContainer):
         self.prepare_data(tfraction)
         self.save()
 
+        rc = self.crossings_r()
+        pc = self.crossings_p()
+        tc = self.crossings_t()
+
+        self.save_crossings(rc, pc, tc)
+
 
     def advance(self, duration):
         """ Runs the simulation for a specified time 'duration'.
@@ -118,7 +124,9 @@ class Runner(IOContainer):
     particle_weight      = staticmethod(grrr.particle_weight)
     charge_density       = staticmethod(grrr.charge_density)
     selfcons_field       = staticmethod(grrr.selfcons_field)
-
+    crossings_r          = staticmethod(grrr.crossings_r)
+    crossings_p          = staticmethod(grrr.crossings_p)
+    crossings_t          = staticmethod(grrr.crossings_t)
 
     def init_list(self, zmin, zmax, emax, n):
         """ Inits a list with n particles randomly located from -zmin to zmin
@@ -127,7 +135,10 @@ class Runner(IOContainer):
         E0 = MC2 + emax
 
         z = random.uniform(zmin, zmax, size=n)
-        q = random.uniform(0, 1, size=n)
+        if self.randomize_init_energy:
+            q = random.uniform(0, 1, size=n)
+        else:
+            q = ones(n)
 
         r = [array([0.0, 0.0, z0]) for z0 in z]
         p = [array([0, 0, q0 * sqrt(E0**2 - M2C4) / co.c]) for q0 in q]

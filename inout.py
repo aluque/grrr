@@ -40,6 +40,10 @@ class IOContainer(ParamContainer):
     def L(s):
         return float(s)
 
+    @param(positive, default=3.0)
+    def Z_WALL(s):
+        return float(s)
+
     @param(positive, default=0.0025 * co.nano)
     def dt(s):
         """ The timestep of the simulation."""
@@ -65,7 +69,11 @@ class IOContainer(ParamContainer):
         """ Initial energy of the particles (in eV). """
         return float(s)
 
-    @param(positive, default=0.0)
+    @param(default=True)
+    def randomize_init_energy(s):
+        return bool(s)
+
+    @param(default=0.0)
     def init_particle_z(s):
         """ Initial z-location of the particles. """
         return float(s)
@@ -145,6 +153,16 @@ class IOContainer(ParamContainer):
         self.root.attrs['nsteps'] = self.itimestep
         self.root.flush()
         logging.info("Timestep {} [TIME={}] saved.".format(gid, self.TIME))
+
+
+    def save_crossings(self, r, p, t):
+        """ Save the r, p, t of the crossings in a single group at the end of 
+        the simulation. """
+        g = self.root.create_group('crossings')
+
+        g.create_dataset('r', data=r, compression='gzip')
+        g.create_dataset('p', data=p, compression='gzip')
+        g.create_dataset('t', data=t, compression='gzip')
 
 
     def load(self, gid):

@@ -25,6 +25,8 @@ static double moller_differential(double gamma, double gamma2, double beta2,
 static double coulomb_differential(double gamma2, double beta2, double p2, 
 				   double rtheta);
 static void particle_track_charge(particle_t *part, int change);
+static void track_crossing(particle_t *part, double dr[3], double dp[3], 
+			   double t, double dt);
 static double rnd_gauss(double mu, double sigma);
 static double ranf (void);
 
@@ -55,6 +57,10 @@ double particle_weight = 1.0;
 /* Name of this program. */
 const char *invok_name = "grrr";
 
+/* We store the crossing points trough a given wall in a linked list. */
+crossing_t *crossing_head = NULL;
+int crossing_count = 0;
+
 /* These are parameters.  Later they have to be set at run-time. */
 double E0 = 7.0e5;
 double U0 = 0.0;
@@ -65,7 +71,7 @@ double B0 = 20e-6;
 double KTH = 0.01 * MEV;
 double GAMMATH;
 double L = 3.0;
-double Z_WALL = 1;
+double Z_WALL = INFINITY;
 
 int NINTERP = 0;
 double *INTERP_VALUES = NULL;
@@ -229,9 +235,11 @@ particle_track_charge(particle_t *part, int change)
 
   n = (int) floor(part->r[Z] / CELL_DZ);
   if (n < 0 || n >= NCELLS) {
-    fprintf (stderr, 
-	     "%s: Warning: particle at z=%g m outside tracking range.\n",
-	     invok_name, part->r[Z]);
+    if (emfield_func == &emfield_selfcons) {
+      fprintf (stderr, 
+	       "%s: Warning: particle at z=%g m outside tracking range.\n",
+	       invok_name, part->r[Z]);
+    }
     return;
   }
 
@@ -882,25 +890,17 @@ rk4(double t, double dt)
 	       part2->dp[i] / 3 + part3->dp[i] / 6);
     }
 
-    /* We use two loops in the index in order to find the wall intersections. */
-    
-    s = (Z_WALL - part->r[2]) / dr[3];
-    
-    for (i = 0; i < 3; i++) {
-      if (s > 0.0 && s <= 1.0) {
-	part->rw[i] = part->r[i] + dr[i] * s;
-	part->pw[i] = part->p[i] + dp[i] * s;
-      }
+    if (isfinite(Z_WALL)) {
+      track_crossing(part, dr, dp, t, dt);
+    }
 
+    /* We use two loops in the index in order to find the wall intersections. */
+    for (i = 0; i < 3; i++) {
       part->r[i] += dr[i];
       part->p[i] += dp[i];
       
     }
-    if (part->rw[2] =! 0) {
-      part->locked = TRUE;
-      part->tw = t + s * dt;
-    }
-    
+
     part->tau = (part->tau + part->dtau / 6 + part1->dtau / 3 + 
 		 part2->dtau / 3 + part3->dtau / 6);
 
@@ -913,6 +913,35 @@ rk4(double t, double dt)
   list_erase(plist3);
 }
 
+
+static void
+track_crossing(particle_t *part, double dr[3], double dp[3], 
+	       double t, double dt)
+/* Checks if the particle is crossing the wall and if so adds 
+   an element to the list of corssings. */
+{
+  double s;
+  crossing_t *crossing;
+  int i;
+
+  s = (Z_WALL - part->r[2]) / dr[2];
+
+  if (s <= 0.0 || s > 1.0) return;
+  crossing = xcalloc(1, sizeof(crossing_t));
+  
+  for (i = 0; i < 3; i++) {
+    crossing->r[i] = part->r[i] + dr[i] * s;
+    crossing->p[i] = part->p[i] + dp[i] * s;
+  }
+  crossing->ptype = part->ptype;
+  crossing->id = part->id;
+
+  crossing->t = t + s * dt;
+  crossing->next = crossing_head;
+  crossing_head = crossing;
+
+  crossing_count++;
+}
 
 
 particle_t *
@@ -961,7 +990,7 @@ drop_thermal(void)
 
   for (part = particle_head; part; part = newpart) {
     newpart = part->next;
-    if (part->thermal && !part->locked) {
+    if (part->thermal) {
       particle_delete(part, TRUE);
     }
   }

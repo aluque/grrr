@@ -33,9 +33,6 @@ typedef struct particle_t {
      r and p of particles. */
   double t0, r0[3], p0[3];
 
-  /* We store the particle's position and momentum on crossing the wall. */
-  double tw, rw[3], pw[3];
-  int locked;
   
   /* At some point, I also find useful to cound the number of collision
      that each particle has undergone. */
@@ -46,6 +43,19 @@ typedef struct particle_t {
 
 } particle_t;
 
+
+/* A structure to store wall crossings. */
+typedef struct crossing_t {
+  enum particle_type ptype;
+
+  /* An unique identified fot the particle. */
+  int id;
+
+  /* We store the particle's position and momentum on crossing the wall. */
+  double t, r[3], p[3];
+  struct crossing_t *next;
+
+} crossing_t;
 
 /* Signature for the functions that calculate em-fields. */
 typedef void (*emfield_func_t)(double, double *, double *, double *);
