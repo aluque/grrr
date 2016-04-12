@@ -51,6 +51,9 @@ typedef struct crossing_t {
   /* An unique identified fot the particle. */
   int id;
 
+  /* The id of the wall that has been crossed. */
+  int wall;
+
   /* We store the particle's position and momentum on crossing the wall. */
   double t, r[3], p[3];
   struct crossing_t *next;
@@ -103,7 +106,7 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 #define EPSILON_0 8.854187817620389e-12
 
 /* Density of atoms in atmospheric air. */
-#define AIR_DENSITY (2 * 2.6867805e+25)
+#define AIR_DENSITY (2 * 2.6881960532935158e+25)
 
 /* Average atomic number of atoms in air molecules. */
 #define AIR_Z (0.8 * 7 + 0.2 * 8)
@@ -155,6 +158,7 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 /* Function declarations. */
 /* grrr.c */
 void set_emfield_callback(emfield_func_t ef);
+void add_wall(double z);
 particle_t *particle_init(int ptype);
 void particle_delete(particle_t *part, int track);
 void particle_append(particle_t *part, int track);

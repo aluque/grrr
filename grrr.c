@@ -15,7 +15,7 @@
 
 static double truncated_bethe_fd(double gamma, double gamma2, double beta2);
 static double bremsstrahlung_fd(double gamma);
-static double cross(const double *a, const double *b, double *r);
+static void cross(const double *a, const double *b, double *r);
 static void rotate(double theta, const double *v, double *r);
 static int argmax(const double *p, int sign, int n);
 static void perp_unit_vectors(const double p[3], double pabs, double up[3],
@@ -68,16 +68,22 @@ double THETA = PI / 4;
 double EB = 0.0;
 double EBWIDTH = 0.0;
 double B0 = 20e-6;
-double KTH = 0.01 * MEV;
+double KTH = 0.05 * MEV;
 double GAMMATH;
 double L = 3.0;
-double Z_WALL = INFINITY;
+
+#define __NWALLS 64
+int nwalls = 0;
+double Z_WALL[__NWALLS];
 
 int NINTERP = 0;
 double *INTERP_VALUES = NULL;
 
 /* If this flag is set we ignore all secondary particles. */
 int ONLY_PRIMARIES = 0;
+
+/* If set, delete a particle after it has crossed a wall. */
+int DELETE_AT_WALL = FALSE;
 
 /* This is an unphysical cutoff to try to model more easily. */
 double FD_CUTOFF = 100000 * MEV;
@@ -139,6 +145,21 @@ emfield_eval(double t, double *r, double *e, double *b)
  to do this using only ctypes.*/
 {
   (*emfield_func) (t, r, e, b);
+}
+
+void
+add_wall(double z)
+/* Adds a wall to check crossings. */
+{
+  if (nwalls >= __NWALLS) {
+    fprintf (stderr, 
+	     "%s: Error: Only up to __NWALLS=%d walls are allowed\n",
+	     invok_name, __NWALLS);
+    exit(-1);
+  }
+
+  Z_WALL[nwalls++] = z;
+  
 }
 
 particle_t*
@@ -655,7 +676,7 @@ bremsstrahlung_fd(double gamma)
 }
 
 
-static double
+static void
 cross(const double *a, const double *b, double *r)
 {
   /* {-az by + ay bz, az bx - ax bz, -ay bx + ax by} */
@@ -890,7 +911,7 @@ rk4(double t, double dt)
 	       part2->dp[i] / 3 + part3->dp[i] / 6);
     }
 
-    if (isfinite(Z_WALL)) {
+    if (nwalls) {
       track_crossing(part, dr, dp, t, dt);
     }
 
@@ -922,25 +943,34 @@ track_crossing(particle_t *part, double dr[3], double dp[3],
 {
   double s;
   crossing_t *crossing;
-  int i;
+  int wall, i;
 
-  s = (Z_WALL - part->r[2]) / dr[2];
+  for (wall = 0; wall < nwalls; wall++) {
+    
+    s = (Z_WALL[wall] - part->r[2]) / dr[2];
 
-  if (s <= 0.0 || s > 1.0) return;
-  crossing = xcalloc(1, sizeof(crossing_t));
-  
-  for (i = 0; i < 3; i++) {
-    crossing->r[i] = part->r[i] + dr[i] * s;
-    crossing->p[i] = part->p[i] + dp[i] * s;
+    if (s <= 0.0 || s > 1.0) continue;
+
+    crossing = xcalloc(1, sizeof(crossing_t));
+    
+    for (i = 0; i < 3; i++) {
+      crossing->r[i] = part->r[i] + dr[i] * s;
+      crossing->p[i] = part->p[i] + dp[i] * s;
+    }
+    crossing->ptype = part->ptype;
+    crossing->id = part->id;
+    crossing->wall = wall;
+    
+    crossing->t = t + s * dt;
+    crossing->next = crossing_head;
+    crossing_head = crossing;
+    
+    crossing_count++;
+
+    if (DELETE_AT_WALL) {
+      part->thermal = TRUE;
+    }
   }
-  crossing->ptype = part->ptype;
-  crossing->id = part->id;
-
-  crossing->t = t + s * dt;
-  crossing->next = crossing_head;
-  crossing_head = crossing;
-
-  crossing_count++;
 }
 
 

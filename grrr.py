@@ -57,6 +57,7 @@ class CROSSING(Structure):
 
 CROSSING._fields_ = [('ptype', c_int),
                      ('id', c_int),
+                     ('wall', c_int),
                      ('t', c_double),
                      ('r', c_double * 3),
                      ('p', c_double * 3),
@@ -64,6 +65,7 @@ CROSSING._fields_ = [('ptype', c_int),
 
 
 # Definition of the argument types to the exported functions
+grrr.add_wall.argtypes = [c_double]
 grrr.particle_init.argtypes = [c_int]
 grrr.particle_init.restype = POINTER(PARTICLE)
 grrr.particle_delete.argtypes = [POINTER(PARTICLE), c_int]
@@ -158,8 +160,19 @@ def particle_weight(value=None):
     return var.value
 
 
+def add_wall(z):
+    grrr.add_wall(z)
+
 def only_primaries(value=True):
     var = c_int.in_dll(grrr, 'ONLY_PRIMARIES')
+    if value is not None:
+        var.value = value
+
+    return var.value
+
+
+def set_delete_at_wall(value=True):
+    var = c_int.in_dll(grrr, 'DELETE_AT_WALL')
     if value is not None:
         var.value = value
 
@@ -389,5 +402,23 @@ def crossings_t():
     b = empty((crossing_count.value))
     for i, cross in enumerate(iter_crossings()):
         b[i] = cross.t
+
+    return b
+
+def crossings_wall():
+    """ Returns an array with shape (NCROSSINGS,) with the wall id
+    of each crossing. """
+    b = empty((crossing_count.value))
+    for i, cross in enumerate(iter_crossings()):
+        b[i] = cross.wall
+
+    return b
+
+def crossings_id():
+    """ Returns an array with shape (NCROSSINGS,) with the wall id
+    of each crossing. """
+    b = empty((crossing_count.value))
+    for i, cross in enumerate(iter_crossings()):
+        b[i] = cross.id
 
     return b

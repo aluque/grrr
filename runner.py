@@ -45,7 +45,11 @@ class Runner(IOContainer):
             logging.info("Set parameter {} = {}".format(k, getattr(self, k)))
 
         self.only_primaries(self.track_only_primaries)
+        self.set_delete_at_wall(self.delete_at_wall)
         self.set_emfield_func(self.emfield)
+        for z in self.z_wall:
+            self.add_wall(z)
+            logging.info("New wall at {}".format(z))
         
         self.list_clear()
         self.particle_weight(self.init_particle_weight)
@@ -73,8 +77,10 @@ class Runner(IOContainer):
         rc = self.crossings_r()
         pc = self.crossings_p()
         tc = self.crossings_t()
+        wc = self.crossings_wall()
+        pid = self.crossings_id()
 
-        self.save_crossings(rc, pc, tc)
+        self.save_crossings(wc, rc, pc, tc, pid)
 
 
     def advance(self, duration):
@@ -109,7 +115,9 @@ class Runner(IOContainer):
         grrr.set_front(self.front_xi, self.front_ez)
 
 
+    add_wall             = staticmethod(grrr.add_wall)
     only_primaries       = staticmethod(grrr.only_primaries)
+    set_delete_at_wall   = staticmethod(grrr.set_delete_at_wall)
     set_emfield_func     = staticmethod(grrr.set_emfield_func)
     list_clear           = staticmethod(grrr.list_clear)
     particles_id         = staticmethod(grrr.particles_id)
@@ -127,6 +135,8 @@ class Runner(IOContainer):
     crossings_r          = staticmethod(grrr.crossings_r)
     crossings_p          = staticmethod(grrr.crossings_p)
     crossings_t          = staticmethod(grrr.crossings_t)
+    crossings_wall       = staticmethod(grrr.crossings_wall)
+    crossings_id         = staticmethod(grrr.crossings_id)
 
     def init_list(self, zmin, zmax, emax, n):
         """ Inits a list with n particles randomly located from -zmin to zmin

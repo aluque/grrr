@@ -40,9 +40,13 @@ class IOContainer(ParamContainer):
     def L(s):
         return float(s)
 
-    @param(positive, default=3.0)
-    def Z_WALL(s):
-        return float(s)
+    @param(default=[])
+    def z_wall(s):
+        try:
+            return [float(s)]
+        except TypeError:
+            return [float(x) for x in s]
+    
 
     @param(positive, default=0.0025 * co.nano)
     def dt(s):
@@ -99,6 +103,10 @@ class IOContainer(ParamContainer):
     def track_only_primaries(s):
         return bool(s)
 
+    @param(default=False)
+    def delete_at_wall(s):
+        return bool(s)
+    
     @param(positive, default=1000)
     def init_particles(s):
         """ Initial number of particles. """
@@ -155,14 +163,16 @@ class IOContainer(ParamContainer):
         logging.info("Timestep {} [TIME={}] saved.".format(gid, self.TIME))
 
 
-    def save_crossings(self, r, p, t):
+    def save_crossings(self, wall, r, p, t, pid):
         """ Save the r, p, t of the crossings in a single group at the end of 
         the simulation. """
         g = self.root.create_group('crossings')
 
+        g.create_dataset('wall', data=wall, compression='gzip')
         g.create_dataset('r', data=r, compression='gzip')
         g.create_dataset('p', data=p, compression='gzip')
         g.create_dataset('t', data=t, compression='gzip')
+        g.create_dataset('id', data=pid, compression='gzip')
 
 
     def load(self, gid):
