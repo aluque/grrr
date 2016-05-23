@@ -46,6 +46,7 @@ class Runner(IOContainer):
 
         self.only_primaries(self.track_only_primaries)
         self.set_delete_at_wall(self.delete_at_wall)
+        self.set_first_wall_only(self.first_wall_only)
         self.set_emfield_func(self.emfield)
         for z in self.z_wall:
             self.add_wall(z)
@@ -118,6 +119,7 @@ class Runner(IOContainer):
     add_wall             = staticmethod(grrr.add_wall)
     only_primaries       = staticmethod(grrr.only_primaries)
     set_delete_at_wall   = staticmethod(grrr.set_delete_at_wall)
+    set_first_wall_only  = staticmethod(grrr.set_first_wall_only)
     set_emfield_func     = staticmethod(grrr.set_emfield_func)
     list_clear           = staticmethod(grrr.list_clear)
     particles_id         = staticmethod(grrr.particles_id)

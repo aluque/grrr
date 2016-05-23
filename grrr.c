@@ -85,6 +85,10 @@ int ONLY_PRIMARIES = 0;
 /* If set, delete a particle after it has crossed a wall. */
 int DELETE_AT_WALL = FALSE;
 
+/* If set, record only the first wall crossing (including all the particle's
+   ascendants */
+int FIRST_WALL_ONLY = FALSE;
+
 /* This is an unphysical cutoff to try to model more easily. */
 double FD_CUTOFF = 100000 * MEV;
 
@@ -178,6 +182,7 @@ particle_init(int ptype)
   part->mass = particle_mass[ptype];
   part->next = NULL;
   part->thermal = FALSE;
+  part->rightmost_wall = -1;
   
   return part;
 }
@@ -950,7 +955,10 @@ track_crossing(particle_t *part, double dr[3], double dp[3],
     s = (Z_WALL[wall] - part->r[2]) / dr[2];
 
     if (s <= 0.0 || s > 1.0) continue;
+    if (part->rightmost_wall < wall) part->rightmost_wall = wall;
 
+    if (FIRST_WALL_ONLY && part->rightmost_wall != wall) continue;
+    
     crossing = xcalloc(1, sizeof(crossing_t));
     
     for (i = 0; i < 3; i++) {
@@ -1336,6 +1344,8 @@ timestep(particle_t *part, double t, double dt)
 
     particle_append(newpart, TRUE);
     particle_birth(newpart);
+    newpart->rightmost_wall = part->rightmost_wall;
+    
     return part;
   }
 }
@@ -1368,6 +1378,7 @@ perform_ionizing_collision(particle_t *part, double dt)
 
   particle_append(newpart, TRUE);
   particle_birth(newpart);
+  newpart->rightmost_wall = part->rightmost_wall;
 }
 
 

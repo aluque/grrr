@@ -106,6 +106,10 @@ class IOContainer(ParamContainer):
     @param(default=False)
     def delete_at_wall(s):
         return bool(s)
+
+    @param(default=False)
+    def first_wall_only(s):
+        return bool(s)
     
     @param(positive, default=1000)
     def init_particles(s):

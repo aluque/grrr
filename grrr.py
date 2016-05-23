@@ -179,6 +179,14 @@ def set_delete_at_wall(value=True):
     return var.value
 
 
+def set_first_wall_only(value=True):
+    var = c_int.in_dll(grrr, 'FIRST_WALL_ONLY')
+    if value is not None:
+        var.value = value
+
+    return var.value
+
+
 def create_particle(ptype, r, p, track=True):
     """ Creates a particle of type ptype and momentum and position puts 
     it in the particle pool. """

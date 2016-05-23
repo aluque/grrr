@@ -32,12 +32,15 @@ typedef struct particle_t {
   /* For the anaylisis it is useful to record the creation time and initial
      r and p of particles. */
   double t0, r0[3], p0[3];
-
   
   /* At some point, I also find useful to cound the number of collision
      that each particle has undergone. */
   int nelastic, nionizing;
 
+  /* The rightmost wall that this particle (or any of its ascendents) has
+     crossed. */
+  int rightmost_wall;
+  
   /* We store all the particles in a doubly-linked list. */
   struct particle_t *prev, *next;
 
