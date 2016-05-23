@@ -6,11 +6,11 @@ physics.  In particular it was designed to simulate electrons moving in a
 self-consistent electric field, as described in [Luque2014]_.
 
 Setting up `grrr`
-^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^
 
 You can download the `grrr` code from its
 `main repository <https://github.com/aluque/grrr>`.  The simulations in
-the paper were produced with the commit tagged `HEAP`_ (hash
+the paper were produced with the commit tagged HEAP (hash
 ``3886b58b68e5da359babb66906bde3be9883b307``).  
 
 `grrr` is mostly written in Python but the time-critical parts are written
@@ -34,4 +34,4 @@ numpy, scipy, matplotlib, h5py, and PyYAML.
 
 
 
-.. _Luque2014: *Relativistic Runaway Ionization Fronts*, A. Luque, *Physical Review Letters*, **112**, 045003 doi:10.1103/PhysRevLett.112.045003 (2014).
+.. [Luque2014] *Relativistic Runaway Ionization Fronts*, A. Luque, *Physical Review Letters*, **112**, 045003 doi:10.1103/PhysRevLett.112.045003 (2014).
