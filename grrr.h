@@ -40,7 +40,7 @@ typedef struct particle_t {
   /* The rightmost wall that this particle (or any of its ascendents) has
      crossed. */
   int rightmost_wall;
-  
+
   /* We store all the particles in a doubly-linked list. */
   struct particle_t *prev, *next;
 

@@ -33,7 +33,8 @@ class Runner(IOContainer):
             base, ext = os.path.splitext(fname)
             ofile = base + '.h5'
 
-        self.save_to(ofile)
+        if self.full_output:
+            self.save_to(ofile)
 
 
     def init_simulation(self):
@@ -66,11 +67,23 @@ class Runner(IOContainer):
 
         while self.TIME <= self.end_time:
             tfraction = self.TIME / self.end_time
-            self.prepare_data(tfraction)
-            self.save()
+            if self.full_output:
+                self.prepare_data(tfraction)
+                self.save()
 
             self.advance(self.output_dt)
-            
+            if (self.nparticles > self.max_particles_cutoff
+                or self.nparticles == 0):
+                break
+
+        if self.avalanches_output is not None:
+            with open(self.avalanches_output, 'a') as faval:
+                faval.write("%d\n" % self.nparticles)
+
+        
+        if not self.full_output:
+            return
+        
         tfraction = self.TIME / self.end_time
         self.prepare_data(tfraction)
         self.save()

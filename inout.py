@@ -116,7 +116,22 @@ class IOContainer(ParamContainer):
         """ Initial number of particles. """
         return int(s)
 
+    @param(positive, default=2**32)
+    def max_particles_cutoff(s):
+        """ Stop the simulation if we reach this number of particles. """
+        return int(s)
 
+    @param(default=None)
+    def avalanches_output(s):
+        """ Write in this file whether we reached the avalanche threshold. """
+        return s
+
+    @param(default=True)
+    def full_output(s):
+        """ Write the full output file? """
+        return bool(s)
+    
+    
     def save_to(self, fname):
         """ Sets the file to save data to. """
         self.root = h5py.File(fname, "w")
