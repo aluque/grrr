@@ -49,6 +49,7 @@ PARTICLE._fields_ = [('ptype', c_int),
                      ('p0', c_double *3),
                      ('nelastic', c_int),
                      ('nionizing', c_int),
+                     ('rightmost_wall', c_int),
                      ('prev', POINTER(PARTICLE)),
                      ('next', POINTER(PARTICLE))]
 
