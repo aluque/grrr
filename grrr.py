@@ -1,6 +1,7 @@
 # This is a thin python wrapper around libgrrr, which contains the
 # hard MC computations.  Everything is built around the ctypes 
 # module in the python stdlib.
+import os
 import logging
 import logger
 
@@ -13,7 +14,9 @@ MC2 = co.electron_mass * co.c**2
 M2C4 = MC2**2
 
 # The library object
-grrr = cdll.LoadLibrary("libgrrr.so")
+grrr_path = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+                         "libgrrr.so")
+grrr = cdll.LoadLibrary(grrr_path)
 grrr.grrr_init()
 logging.debug('libgrrr.so loaded and initialized.')
 
@@ -111,6 +114,7 @@ set_emfield_front = grrr.set_emfield_front
 particle_head = POINTER(PARTICLE).in_dll(grrr, 'particle_head')
 particle_tail = POINTER(PARTICLE).in_dll(grrr, 'particle_tail')
 particle_count = c_int.in_dll(grrr, 'particle_count')
+all_time_max_particles = c_int.in_dll(grrr, 'all_time_max_particles')
 
 # And the list of crossings
 crossing_head = POINTER(CROSSING).in_dll(grrr, 'crossing_head')

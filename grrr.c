@@ -51,6 +51,10 @@ particle_t *particle_head = NULL, *particle_tail = NULL;
 /* We also have a counter of the total number of particles. */
 int particle_count = 0;
 
+/* We track the all-time maximum of the particle count to check the
+   Rutjes-Sarria avalanche criterium. */
+int all_time_max_particles = 0;
+
 /* When we use super-particles, we track the particle weight. */
 double particle_weight = 1.0;
 
@@ -68,7 +72,7 @@ double THETA = PI / 4;
 double EB = 0.0;
 double EBWIDTH = 0.0;
 double B0 = 20e-6;
-double KTH = 0.05 * MEV;
+double KTH = 0.0001 * MEV;
 double GAMMATH;
 double L = 3.0;
 
@@ -131,6 +135,8 @@ grrr_init(void)
     fixedcharge[i] = 0.0;
   }
   TIME = 0;
+
+  srand(time(0));
 }
 
 
@@ -231,6 +237,9 @@ particle_append(particle_t *part, int track)
   
   if (track) particle_track_charge(part, 1);
   particle_count++;
+  if (particle_count > all_time_max_particles) {
+    all_time_max_particles = particle_count;
+  }
 }
 
 void

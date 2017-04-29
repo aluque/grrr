@@ -43,7 +43,7 @@ class Runner(IOContainer):
         for k in self.param_names:
             if k.isupper():
                 grrr.set_parameter(k, getattr(self, k))
-            logging.info("Set parameter {} = {}".format(k, getattr(self, k)))
+            logging.debug("Set parameter {} = {}".format(k, getattr(self, k)))
 
         self.only_primaries(self.track_only_primaries)
         self.set_delete_at_wall(self.delete_at_wall)
@@ -51,7 +51,7 @@ class Runner(IOContainer):
         self.set_emfield_func(self.emfield)
         for z in self.z_wall:
             self.add_wall(z)
-            logging.info("New wall at {}".format(z))
+            logging.debug("New wall at {}".format(z))
         
         self.list_clear()
         self.particle_weight(self.init_particle_weight)
@@ -59,6 +59,8 @@ class Runner(IOContainer):
                        self.init_particle_energy, self.init_particles)
         
         self.output_n = int(self.output_dt / self.dt)
+        grrr.set_parameter('TIME', 0.0)
+        grrr.all_time_max_particles.value = 0
         
 
     def run(self):
@@ -78,7 +80,7 @@ class Runner(IOContainer):
 
         if self.avalanches_output is not None:
             with open(self.avalanches_output, 'a') as faval:
-                faval.write("%d\n" % self.nparticles)
+                faval.write("%d\n" % grrr.all_time_max_particles.value)
 
         
         if not self.full_output:
@@ -198,7 +200,7 @@ class Runner(IOContainer):
 
 
     def print_status(self):
-        logging.info("[{0:.2f} ns]: {1:g} particles ({2:d} superparticles)"\
+        logging.debug("[{0:.2f} ns]: {1:g} particles ({2:d} superparticles)"\
                          .format(self.TIME / co.nano, 
                                  self.nparticles,
                                  self.nsuper))
@@ -213,8 +215,12 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--ofile", 
                         help="Output file (.h5)",
                         default=None)
+    parser.add_argument("-N", type=int,
+                        help="Run the simulation N times",
+                        default=1)
 
     args = parser.parse_args()
 
     runner = Runner(args.input, ofile=args.ofile)
-    runner.run()
+    for i in range(args.N):
+        runner.run()
