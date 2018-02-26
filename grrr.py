@@ -71,6 +71,7 @@ CROSSING._fields_ = [('ptype', c_int),
 # Definition of the argument types to the exported functions
 grrr.add_wall.argtypes = [c_double]
 grrr.particle_init.argtypes = [c_int]
+grrr.set_random_seed.argtypes = [c_int]
 grrr.particle_init.restype = POINTER(PARTICLE)
 grrr.particle_delete.argtypes = [POINTER(PARTICLE), c_int]
 grrr.particle_append.argtypes = [POINTER(PARTICLE), c_int]
@@ -127,7 +128,10 @@ emfield_func = c_emfunc_p.in_dll(grrr, 'emfield_func')
 # it will be gc'ed and we will run into memory corruption issues.
 _emfield_func = None
 
+def set_random_seed(seed):
+    grrr.set_random_seed(seed)
 
+    
 def set_parameter(name, value, ctype=c_double):
     """ Sets one parameter with the given value.
     Note that this function may be used to change some other variable, 

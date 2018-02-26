@@ -4,6 +4,8 @@ import sys
 import os
 import logging
 import logger
+# Conflicting names with numpy
+import random as pyrandom
 
 from numpy import *
 import scipy.constants as co
@@ -37,6 +39,7 @@ class Runner(IOContainer):
             self.save_to(ofile)
 
 
+            
     def init_simulation(self):
         """ Sets the parameters into the libgrrr-space and initializes the
         particle list. """
@@ -61,12 +64,18 @@ class Runner(IOContainer):
         self.output_n = int(self.output_dt / self.dt)
         grrr.set_parameter('TIME', 0.0)
         grrr.all_time_max_particles.value = 0
-        
+
+        if isinstance(self.random_seed, int):
+            grrr.set_random_seed(self.random_seed)
+        elif self.random_seed == 'generate':
+            sr = pyrandom.SystemRandom()
+            grrr.set_random_seed(int(sr.randint(0, 2**32 - 1)))
+
 
     def run(self):
         """ Runs the simulation. """
         self.init_simulation()
-
+        
         while self.TIME <= self.end_time:
             tfraction = self.TIME / self.end_time
             if self.full_output:
@@ -78,7 +87,7 @@ class Runner(IOContainer):
                 or self.nparticles == 0):
                 break
 
-        if self.avalanches_output is not None:
+        if self.avalanches_output:
             with open(self.avalanches_output, 'a') as faval:
                 faval.write("%d\n" % grrr.all_time_max_particles.value)
 

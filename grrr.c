@@ -75,6 +75,9 @@ double B0 = 20e-6;
 double KTH = 0.0001 * MEV;
 double GAMMATH;
 double L = 3.0;
+double CYL_ZMIN = -INFINITY;
+double CYL_ZMAX = INFINITY;
+double CYL_RMAX = INFINITY;
 
 #define __NWALLS 64
 int nwalls = 0;
@@ -135,8 +138,11 @@ grrr_init(void)
     fixedcharge[i] = 0.0;
   }
   TIME = 0;
+}
 
-  srand(time(0));
+void set_random_seed(int seed)
+{
+  srand(seed);
 }
 
 
@@ -1043,6 +1049,24 @@ drop_thermal(void)
   }
 }
 
+void
+drop_outdomain(void)
+/* Removes from the list all particles that have been exited the domain. */
+{
+  particle_t *part, *newpart;
+
+  for (part = particle_head; part; part = newpart) {
+    double *r;
+    newpart = part->next;
+    r = part->r;
+    if (r[Z] > CYL_ZMAX ||
+	r[Z] < CYL_ZMIN ||
+	r[X] * r[X] + r[Y] * r[Y] > CYL_RMAX * CYL_RMAX) {
+      particle_delete(part, TRUE);
+    }
+  }
+}
+
 
 int
 ionizing_collision(particle_t *part, double dt, double *K1, double *K2)
@@ -1428,13 +1452,15 @@ sync_list_step(double dt)
     perform_ionizing_collision(part, dt);
     perform_elastic_collision(part, dt);
   }
-
   /* Update r and p with a 4th order Runge-Kutta. */
   rk4(TIME, dt);
 
   /* Drop the thermalized particles. */
   drop_thermal();
 
+  /* Drop particles that have exited the domain. */
+  drop_outdomain();
+  
   TIME += dt;
 }
 

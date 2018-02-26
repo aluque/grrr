@@ -36,10 +36,30 @@ class IOContainer(ParamContainer):
         """ The geomagnetic field. """
         return float(s)
 
+    @param(default=10 * co.kilo * co.eV)
+    def KTH(s):
+        """ Energy threshold. """
+        return float(s)
+    
     @param(positive, default=3.0)
     def L(s):
         return float(s)
 
+    @param(default=-inf)
+    def CYL_ZMIN(s):
+        """ Base of cylinder domain. """
+        return float(s)
+
+    @param(default=inf)
+    def CYL_ZMAX(s):
+        """ Top of cylinder domain. """
+        return float(s)
+
+    @param(default=inf)
+    def CYL_RMAX(s):
+        """ Top of cylinder domain. """
+        return float(s)
+    
     @param(default=[])
     def z_wall(s):
         try:
@@ -121,7 +141,12 @@ class IOContainer(ParamContainer):
         """ Stop the simulation if we reach this number of particles. """
         return int(s)
 
-    @param(default=None)
+    @param(default='generate')
+    def random_seed(s):
+        """ Random seed (use 'generate' to generate it on the fly). """
+        return s
+
+    @param(default=False)
     def avalanches_output(s):
         """ Write in this file whether we reached the avalanche threshold. """
         return s

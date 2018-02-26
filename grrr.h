@@ -160,6 +160,7 @@ typedef void (*emfield_func_t)(double, double *, double *, double *);
 
 /* Function declarations. */
 /* grrr.c */
+void set_random_seed(int seed);
 void set_emfield_callback(emfield_func_t ef);
 void add_wall(double z);
 particle_t *particle_init(int ptype);
@@ -179,6 +180,7 @@ int rk4_single(particle_t *part, double t, double dt, int update);
 void rk4(double t, double dt);
 particle_t *rkstep(particle_t *plist0, particle_t *plist1, double rkfactor);
 void drop_thermal(void);
+void drop_outdomain(void);
 int ionizing_collision(particle_t *part, double dt, double *K1, double *K2);
 int elastic_collision(particle_t *part, double dt, double *theta);
 void elastic_diffusion(particle_t *part, double dt, double *theta);
