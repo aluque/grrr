@@ -9,9 +9,7 @@ Setting up `grrr`
 ^^^^^^^^^^^^^^^^^
 
 You can download the `grrr` code from its
-`main repository <https://github.com/aluque/grrr>`.  The simulations in
-the paper were produced with the commit tagged HEAP (hash
-``3886b58b68e5da359babb66906bde3be9883b307``).  
+`main repository <https://github.com/aluque/grrr>`. 
 
 `grrr` is mostly written in Python but the time-critical parts are written
 in a C library that you have to compile.  You can do it with::
